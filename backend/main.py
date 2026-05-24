@@ -11,8 +11,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-STATE_FILE  = "/data/state.json"
-CONFIG_FILE = "/data/config.json"
+_DATA_DIR   = os.environ.get("QUESTBOARD_DATA", "/data")
+STATE_FILE  = os.path.join(_DATA_DIR, "state.json")
+CONFIG_FILE = os.path.join(_DATA_DIR, "config.json")
 
 
 def read_json(path):

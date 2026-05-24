@@ -106,6 +106,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [lastHits, setLastHits] = useState({});
   const [celebration, setCelebration] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const lastActionAt = useRef(0);
 
   const players = config?.players ?? [];
@@ -114,9 +115,10 @@ export default function App() {
     if (!config) return REWARDS;
     const enabled = new Set(config.enabledRewards ?? REWARDS.map(r => r.id));
     const overrides = config.rewardOverrides ?? {};
-    return REWARDS
+    const base = REWARDS
       .filter(r => enabled.has(r.id))
       .map(r => overrides[r.id] ? { ...r, ...overrides[r.id] } : r);
+    return [...base, ...(config.customRewards ?? [])];
   }, [config]);
 
   const activeChores = useMemo(() => {
@@ -358,22 +360,66 @@ export default function App() {
   }, [players, serverState, updateState]);
 
   const handleSetupComplete = useCallback(async (wizardConfig) => {
-    await fetch(`${API}/config`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(wizardConfig),
-    });
-    setConfig(wizardConfig);
-    setNeedsSetup(false);
     const freshState = makeDefaultState(wizardConfig.players);
     const { state: after } = applyAutoResets(freshState, wizardConfig.players);
-    await fetch(`${API}/state`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(after),
-    });
+    await Promise.all([
+      fetch(`${API}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wizardConfig),
+      }),
+      fetch(`${API}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(after),
+      }),
+    ]);
+    // Set all three together so React batches them into one render
+    setConfig(wizardConfig);
     setServerState(after);
+    setNeedsSetup(false);
   }, []);
+
+  const handleEditComplete = useCallback(async (wizardConfig) => {
+    const newIds = new Set(wizardConfig.players.map(p => p.id));
+    const zeros = Object.fromEntries(wizardConfig.players.map(p => [p.id, 0]));
+
+    const keep = (obj) => ({
+      ...zeros,
+      ...Object.fromEntries(Object.entries(obj || {}).filter(([id]) => newIds.has(id))),
+    });
+
+    const newMonsters = { ...(serverState.assignedMonsters || {}) };
+    wizardConfig.players.forEach(pl => {
+      if (!newMonsters[pl.id]) newMonsters[pl.id] = randomMonster(pl);
+    });
+    Object.keys(newMonsters).forEach(id => { if (!newIds.has(id)) delete newMonsters[id]; });
+
+    const mergedState = {
+      ...serverState,
+      gold: keep(serverState.gold),
+      xp: keep(serverState.xp),
+      streaks: keep(serverState.streaks),
+      assignedMonsters: newMonsters,
+    };
+
+    await Promise.all([
+      fetch(`${API}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(wizardConfig),
+      }),
+      fetch(`${API}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mergedState),
+      }),
+    ]);
+
+    setConfig(wizardConfig);
+    setServerState(mergedState);
+    setShowSettings(false);
+  }, [serverState]);
 
   if (loading) {
     return (
@@ -388,6 +434,19 @@ export default function App() {
       <>
         <DungeonBackground />
         <SetupWizard onComplete={handleSetupComplete} />
+      </>
+    );
+  }
+
+  if (showSettings) {
+    return (
+      <>
+        <DungeonBackground />
+        <SetupWizard
+          initialConfig={config}
+          onComplete={handleEditComplete}
+          onCancel={() => setShowSettings(false)}
+        />
       </>
     );
   }
@@ -412,6 +471,7 @@ export default function App() {
             <TileSprite tile={116} display={14} /> History
           </button>
         </div>
+        <button className="reset-btn" onClick={() => setShowSettings(true)}><TileSprite tile={115} display={12} /> Settings</button>
         <button className="reset-btn" onClick={resetWeek}><TileSprite tile={115} display={12} /> Reset week</button>
       </div>
 
@@ -458,7 +518,7 @@ export default function App() {
             : <div className="no-select">Select a hero above to browse the shop.</div>
         )}
         {currentTab === 'history' && (
-          <HistoryTab history={state.history || []} />
+          <HistoryTab history={state.history || []} players={players} />
         )}
       </div>
 

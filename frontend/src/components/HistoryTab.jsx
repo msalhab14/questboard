@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { PLAYERS } from '../data';
 import TileSprite from './TileSprite';
 
 const TYPE_TILE = {
@@ -9,7 +8,7 @@ const TYPE_TILE = {
   reward:   41,
 };
 
-export default function HistoryTab({ history }) {
+export default function HistoryTab({ history, players }) {
   const [filter, setFilter] = useState(null);
 
   const all = [...history].reverse().slice(0, 100);
@@ -25,7 +24,7 @@ export default function HistoryTab({ history }) {
         >
           All
         </button>
-        {PLAYERS.map(p => (
+        {(players ?? []).map(p => (
           <button
             key={p.id}
             className={`history-filter-btn${filter === p.name ? ' active' : ''}`}
