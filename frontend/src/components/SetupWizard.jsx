@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ALL_CHORES } from '../data';
+import { ALL_CHORES, REWARDS } from '../data';
 import TileSprite from './TileSprite';
 
 const CLASSES = [
@@ -111,7 +111,7 @@ function StepPlayerCount({ onSelect }) {
 }
 
 // ── Step 2: Per-player setup ──────────────────────────────────────────────────
-function StepPlayerSetup({ player, playerIdx, total, onChange, onNext, onBack }) {
+function StepPlayerSetup({ player, playerIdx, total, onChange, onNext, onBack, onDone }) {
   const canAdvance = player.name.trim().length > 0;
 
   return (
@@ -191,21 +191,29 @@ function StepPlayerSetup({ player, playerIdx, total, onChange, onNext, onBack })
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24 }}>
         <button style={S.btn} onClick={onBack}>← Back</button>
-        <button
-          style={canAdvance ? S.btnPrimary : S.btnDisabled}
-          onClick={canAdvance ? onNext : undefined}
-        >
-          {playerIdx + 1 < total ? 'Next Hero →' : 'Choose Chores →'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {playerIdx > 0 && playerIdx + 1 < total && (
+            <button style={S.btn} onClick={onDone}>Done adding heroes</button>
+          )}
+          <button
+            style={canAdvance ? S.btnPrimary : S.btnDisabled}
+            onClick={canAdvance ? onNext : undefined}
+          >
+            {playerIdx + 1 < total ? 'Next Hero →' : 'Choose Chores →'}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 // ── Step 3: Chore selection ───────────────────────────────────────────────────
-function StepChoreSelect({ players, enabledChores, onToggle, customChores, onAddCustom, onBack, onLaunch }) {
+const WHO_CYCLE = ['all', 'adults', 'kids'];
+const WHO_LABEL = { all: 'everyone', adults: 'adults', kids: 'kids' };
+
+function StepChoreSelect({ players, enabledChores, onToggle, choreOverrides, onOverride, customChores, onAddCustom, onBack, onLaunch }) {
   const [addingCustom, setAddingCustom] = useState(false);
   const [form, setForm] = useState({ name: '', icon: '⭐', pts: 2, who: 'all', freq: 'daily' });
 
@@ -214,15 +222,9 @@ function StepChoreSelect({ players, enabledChores, onToggle, customChores, onAdd
   const weekly  = ALL_CHORES.filter(c => c.freq === 'weekly');
   const monthly = ALL_CHORES.filter(c => c.freq === 'monthly');
 
-  function whoLabel(who) {
-    if (who === 'all') return 'everyone';
-    if (who === 'adults') return 'adults';
-    return 'kids';
-  }
-
-  function isRelevant(chore) {
-    if (chore.who === 'all') return true;
-    return modes.has(chore.who);
+  function isRelevant(who) {
+    if (who === 'all') return true;
+    return modes.has(who);
   }
 
   function submitCustom() {
@@ -233,7 +235,22 @@ function StepChoreSelect({ players, enabledChores, onToggle, customChores, onAdd
   }
 
   function ChoreRow({ chore }) {
-    const dim = !isRelevant(chore);
+    const ov = choreOverrides[chore.id] || {};
+    const who = ov.who ?? chore.who;
+    const pts = ov.pts ?? chore.pts;
+    const dim = !isRelevant(who);
+
+    function cycleWho(e) {
+      e.stopPropagation();
+      const next = WHO_CYCLE[(WHO_CYCLE.indexOf(who) + 1) % WHO_CYCLE.length];
+      onOverride(chore.id, { ...ov, who: next });
+    }
+
+    function cyclePts(e) {
+      e.stopPropagation();
+      onOverride(chore.id, { ...ov, pts: pts >= 6 ? 1 : pts + 1 });
+    }
+
     return (
       <div
         style={{
@@ -246,13 +263,25 @@ function StepChoreSelect({ players, enabledChores, onToggle, customChores, onAdd
         <input
           type="checkbox"
           checked={enabledChores.has(chore.id)}
-          onChange={() => onToggle(chore.id)}
-          style={{ accentColor: '#f5c870', width: 14, height: 14, cursor: 'pointer' }}
+          onChange={() => {}}
+          style={{ accentColor: '#f5c870', width: 14, height: 14, pointerEvents: 'none' }}
         />
         <span style={{ fontSize: 16 }}>{chore.icon}</span>
         <span style={{ color: '#c8d0e0', fontSize: 12, flex: 1 }}>{chore.name}</span>
-        <span style={{ color: '#5a5a7a', fontSize: 10 }}>{whoLabel(chore.who)}</span>
-        <span style={{ color: '#7a6a3a', fontSize: 10 }}>{chore.pts}pts</span>
+        <button
+          onClick={cycleWho}
+          style={{ background: 'none', border: '1px solid #3a3a5e', color: '#7ab8f5', fontSize: 10, padding: '2px 6px', cursor: 'pointer' }}
+          title="Click to change who this applies to"
+        >
+          {WHO_LABEL[who]}
+        </button>
+        <button
+          onClick={cyclePts}
+          style={{ background: 'none', border: '1px solid #3a3a5e', color: '#f5c870', fontSize: 10, padding: '2px 6px', cursor: 'pointer', minWidth: 36 }}
+          title="Click to change point value"
+        >
+          {pts}pts
+        </button>
       </div>
     );
   }
@@ -265,7 +294,10 @@ function StepChoreSelect({ players, enabledChores, onToggle, customChores, onAdd
           <span style={{ color: '#f5c870', fontSize: 11, letterSpacing: 1 }}>{title}</span>
           <button
             style={{ ...S.btn, padding: '2px 8px', fontSize: 10 }}
-            onClick={() => chores.forEach(c => { if (allOn !== enabledChores.has(c.id)) onToggle(c.id); else if (allOn) onToggle(c.id); })}
+            onClick={() => {
+              if (allOn) chores.filter(c => enabledChores.has(c.id)).forEach(c => onToggle(c.id));
+              else chores.filter(c => !enabledChores.has(c.id)).forEach(c => onToggle(c.id));
+            }}
           >
             {allOn ? 'none' : 'all'}
           </button>
@@ -331,6 +363,113 @@ function StepChoreSelect({ players, enabledChores, onToggle, customChores, onAdd
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
         <button style={S.btn} onClick={onBack}>← Back</button>
+        <button style={S.btnPrimary} onClick={onNext}>Next: Rewards →</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Step 4: Reward selection ──────────────────────────────────────────────────
+const REWARD_TIERS = [
+  { label: 'QUICK',  max: 15  },
+  { label: 'MID',    max: 30  },
+  { label: 'BIG',    max: 65  },
+  { label: 'DREAM',  max: 999 },
+];
+
+function StepRewardSelect({ players, enabledRewards, onToggle, rewardOverrides, onOverride, onBack, onLaunch }) {
+  const modes = new Set(players.map(p => p.mode));
+
+  function isRelevant(who) {
+    if (who === 'all') return true;
+    return modes.has(who);
+  }
+
+  function RewardRow({ reward }) {
+    const ov = rewardOverrides[reward.id] || {};
+    const who = ov.who ?? reward.who;
+    const cost = ov.cost ?? reward.cost;
+    const dim = !isRelevant(who);
+
+    function cycleWho(e) {
+      e.stopPropagation();
+      const next = WHO_CYCLE[(WHO_CYCLE.indexOf(who) + 1) % WHO_CYCLE.length];
+      onOverride(reward.id, { ...ov, who: next });
+    }
+
+    function changeCost(e) {
+      e.stopPropagation();
+      const val = parseInt(e.target.value, 10);
+      if (!isNaN(val) && val > 0) onOverride(reward.id, { ...ov, cost: val });
+    }
+
+    return (
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0',
+          borderBottom: '1px solid #1e1e3a', opacity: dim ? 0.4 : 1, cursor: 'pointer',
+        }}
+        onClick={() => onToggle(reward.id)}
+      >
+        <input
+          type="checkbox"
+          checked={enabledRewards.has(reward.id)}
+          onChange={() => {}}
+          style={{ accentColor: '#f5c870', width: 14, height: 14, pointerEvents: 'none' }}
+        />
+        <span style={{ fontSize: 16 }}>{reward.icon}</span>
+        <span style={{ color: '#c8d0e0', fontSize: 12, flex: 1 }}>{reward.name}</span>
+        <button
+          onClick={cycleWho}
+          style={{ background: 'none', border: '1px solid #3a3a5e', color: '#7ab8f5', fontSize: 10, padding: '2px 6px', cursor: 'pointer' }}
+        >
+          {WHO_LABEL[who]}
+        </button>
+        <input
+          type="number"
+          value={cost}
+          min={1} max={999}
+          onClick={e => e.stopPropagation()}
+          onChange={changeCost}
+          style={{ ...S.input, width: 52, padding: '2px 4px', fontSize: 11, textAlign: 'center', color: '#f5c870' }}
+        />
+        <span style={{ color: '#7a6a3a', fontSize: 10 }}>gold</span>
+      </div>
+    );
+  }
+
+  function TierSection({ label, max, prev }) {
+    const tier = REWARDS.filter(r => r.cost <= max && r.cost > (prev || 0));
+    if (!tier.length) return null;
+    const allOn = tier.every(r => enabledRewards.has(r.id));
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ color: '#f5c870', fontSize: 11, letterSpacing: 1 }}>{label}</span>
+          <button
+            style={{ ...S.btn, padding: '2px 8px', fontSize: 10 }}
+            onClick={() => {
+              if (allOn) tier.filter(r => enabledRewards.has(r.id)).forEach(r => onToggle(r.id));
+              else tier.filter(r => !enabledRewards.has(r.id)).forEach(r => onToggle(r.id));
+            }}
+          >
+            {allOn ? 'none' : 'all'}
+          </button>
+        </div>
+        {tier.map(r => <RewardRow key={r.id} reward={r} />)}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={S.h2}>Choose your rewards</div>
+      <p style={S.p}>Select rewards available to your family. Click the gold cost to edit it — set prices that feel right for your household.</p>
+      {REWARD_TIERS.map((t, i) => (
+        <TierSection key={t.label} label={t.label} max={t.max} prev={REWARD_TIERS[i - 1]?.max} />
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+        <button style={S.btn} onClick={onBack}>← Back</button>
         <button style={S.btnPrimary} onClick={onLaunch}>Launch the Adventure! ⚔</button>
       </div>
     </div>
@@ -343,7 +482,10 @@ export default function SetupWizard({ onComplete }) {
   const [players, setPlayers] = useState([makePlayer(0), makePlayer(1)]);
   const [playerIdx, setPlayerIdx] = useState(0);
   const [enabledChores, setEnabledChores] = useState(() => new Set(ALL_CHORES.map(c => c.id)));
+  const [choreOverrides, setChoreOverrides] = useState({});
   const [customChores, setCustomChores] = useState([]);
+  const [enabledRewards, setEnabledRewards] = useState(() => new Set(REWARDS.map(r => r.id)));
+  const [rewardOverrides, setRewardOverrides] = useState({});
   const [launching, setLaunching] = useState(false);
 
   function handlePlayerCount(n) {
@@ -362,6 +504,11 @@ export default function SetupWizard({ onComplete }) {
     } else {
       setStep(3);
     }
+  }
+
+  function doneAddingPlayers() {
+    setPlayers(prev => prev.slice(0, playerIdx + 1));
+    setStep(3);
   }
 
   function prevPlayer() {
@@ -384,19 +531,37 @@ export default function SetupWizard({ onComplete }) {
     setCustomChores(prev => [...prev, chore]);
   }
 
+  function overrideChore(id, override) {
+    setChoreOverrides(prev => ({ ...prev, [id]: override }));
+  }
+
+  function toggleReward(id) {
+    setEnabledRewards(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function overrideReward(id, override) {
+    setRewardOverrides(prev => ({ ...prev, [id]: override }));
+  }
+
   async function handleLaunch() {
     setLaunching(true);
     const config = {
       players,
       enabledChores: [...enabledChores],
+      choreOverrides,
       customChores,
+      enabledRewards: [...enabledRewards],
+      rewardOverrides,
     };
     await onComplete(config);
   }
 
-  const stepLabels = ['Welcome', 'Players', 'Setup', 'Quests'];
-  const stepNum = step === 2 ? 3 : step + 1;
-  const totalSteps = 4;
+  const stepNum = step === 2 ? 3 : step === 4 ? 5 : step + 1;
+  const totalSteps = 5;
 
   return (
     <div style={S.overlay}>
@@ -425,15 +590,28 @@ export default function SetupWizard({ onComplete }) {
               onChange={updatePlayer}
               onNext={nextPlayer}
               onBack={prevPlayer}
+              onDone={doneAddingPlayers}
             />
-          ) : (
+          ) : step === 3 ? (
             <StepChoreSelect
               players={players}
               enabledChores={enabledChores}
               onToggle={toggleChore}
+              choreOverrides={choreOverrides}
+              onOverride={overrideChore}
               customChores={customChores}
               onAddCustom={addCustomChore}
               onBack={() => { setPlayerIdx(players.length - 1); setStep(2); }}
+              onNext={() => setStep(4)}
+            />
+          ) : (
+            <StepRewardSelect
+              players={players}
+              enabledRewards={enabledRewards}
+              onToggle={toggleReward}
+              rewardOverrides={rewardOverrides}
+              onOverride={overrideReward}
+              onBack={() => setStep(3)}
               onLaunch={handleLaunch}
             />
           )}

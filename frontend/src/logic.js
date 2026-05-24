@@ -42,9 +42,9 @@ export function getChoresFor(player, chores) {
     .filter(c => c.dow === undefined || c.dow === dow);
 }
 
-export function getRewardsFor(player) {
+export function getRewardsFor(player, rewards) {
   const isKid = player.mode === 'kids';
-  return REWARDS.filter(r => r.who === 'all' || (isKid ? r.who === 'kids' : r.who === 'adults'));
+  return rewards.filter(r => r.who === 'all' || (isKid ? r.who === 'kids' : r.who === 'adults'));
 }
 
 export function getLevelFromXP(totalXp) {

@@ -2,8 +2,8 @@ import React from 'react';
 import { getRewardsFor } from '../logic';
 import TileSprite from './TileSprite';
 
-export default function RewardGrid({ player, gold, onRedeemReward }) {
-  const rewards = getRewardsFor(player);
+export default function RewardGrid({ player, gold, activeRewards, onRedeemReward }) {
+  const rewards = getRewardsFor(player, activeRewards);
 
   return (
     <>

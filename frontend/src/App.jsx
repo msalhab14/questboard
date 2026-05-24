@@ -110,10 +110,22 @@ export default function App() {
 
   const players = config?.players ?? [];
 
+  const activeRewards = useMemo(() => {
+    if (!config) return REWARDS;
+    const enabled = new Set(config.enabledRewards ?? REWARDS.map(r => r.id));
+    const overrides = config.rewardOverrides ?? {};
+    return REWARDS
+      .filter(r => enabled.has(r.id))
+      .map(r => overrides[r.id] ? { ...r, ...overrides[r.id] } : r);
+  }, [config]);
+
   const activeChores = useMemo(() => {
     if (!config) return [];
     const enabled = new Set(config.enabledChores ?? []);
-    const base = ALL_CHORES.filter(c => enabled.has(c.id));
+    const overrides = config.choreOverrides ?? {};
+    const base = ALL_CHORES
+      .filter(c => enabled.has(c.id))
+      .map(c => overrides[c.id] ? { ...c, ...overrides[c.id] } : c);
     return [...base, ...(config.customChores ?? [])];
   }, [config]);
 
@@ -309,7 +321,7 @@ export default function App() {
 
   const redeemReward = useCallback(async (rewardId) => {
     if (!selected || !serverState) return;
-    const reward = REWARDS.find(r => r.id === rewardId);
+    const reward = activeRewards.find(r => r.id === rewardId);
     const player = players.find(p => p.id === selected);
     const gold = serverState.gold[selected] || 0;
     if (gold < reward.cost) return;
@@ -324,7 +336,7 @@ export default function App() {
     await updateState(newState);
     playRedeem();
     showToast(`${player.name} redeemed: ${reward.name}!`);
-  }, [selected, serverState, players, updateState, showToast]);
+  }, [selected, serverState, players, activeRewards, updateState, showToast]);
 
   const resetWeek = useCallback(async () => {
     if (!confirm('Reset chores, gold, and monsters? History will be kept.')) return;
@@ -440,6 +452,7 @@ export default function App() {
             ? <RewardGrid
                 player={selectedPlayer}
                 gold={state.gold[selected] || 0}
+                activeRewards={activeRewards}
                 onRedeemReward={redeemReward}
               />
             : <div className="no-select">Select a hero above to browse the shop.</div>
