@@ -21,6 +21,10 @@ frontend/public/sprites/new_monsters/
 *.log
 .vscode/
 .idea/
+.claude/
+
+# Dev/local files
+choreboard.html
 
 # Build cache
 .cache/
