@@ -359,7 +359,7 @@ export default function DungeonMap({ player, dungeonMap, allPlayers = [], allDun
             ['▼', 'One staircase down per floor — deeper = richer'],
             ['▲', 'Stairs up go back to the previous floor'],
             ['?', 'Danger rooms are hidden until you enter'],
-            ['🌫', 'Map resets at midnight'],
+            ['⭐', 'New day grants bonus moves — your progress never resets'],
           ].map(([icon, text]) => (
             <div key={text} className="dmap-guide-row">
               <span className="dmap-guide-icon">{icon}</span>
