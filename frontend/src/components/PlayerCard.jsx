@@ -1,8 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { todayKey, dateSeededMonster, resolveMonster, getLevelFromXP, critChanceForLevel, luckForLevel, getPlayerTitle } from '../logic';
 import { BADGES } from '../data';
 import TileSprite from './TileSprite';
 import MonsterSprite from './MonsterSprite';
+
+function HpSegBar({ hp, maxHP, low }) {
+  const segments = Math.min(maxHP, 20);
+  const filledSegs = maxHP > 0 ? Math.round((hp / maxHP) * segments) : 0;
+  return (
+    <div className="hp-bar-segmented">
+      {Array.from({ length: segments }, (_, i) => (
+        <div key={i} className={`hp-seg${i < filledSegs ? (low ? ' filled low' : ' filled') : ''}`} />
+      ))}
+    </div>
+  );
+}
 
 function hexToRgba(hex, alpha) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -21,47 +33,48 @@ const CLASS_TILES = {
 };
 
 // src, sheetW, sheetH, frameSize (default 64), frames, CSS filter, offsetY px, display override dp
+// dp targets: fs=32 → 52px, fs=48 → 64px, fs=64 → 80px (boss 88px)
 const MONSTER_CFG = {
   // PixelFlush Mega Pack - horizontal frame strips
-  green_slime:      { src: '/sprites/monsters2/green_slime.png',     sw:  32, sh:  32, fs: 32, fr: 1 },
-  rat:              { src: '/sprites/monsters2/rat.png',             sw:  64, sh:  32, fs: 32, fr: 2 },
-  tiny_spider:      { src: '/sprites/monsters2/tiny_spider.png',     sw:  64, sh:  32, fs: 32, fr: 2 },
-  forest_imp:       { src: '/sprites/monsters2/forest_imp.png',      sw:  64, sh:  32, fs: 32, fr: 2 },
-  wisp:             { src: '/sprites/monsters2/wisp.png',            sw:  64, sh:  32, fs: 32, fr: 2 },
-  goblin:           { src: '/sprites/monsters2/goblin.png',          sw:  64, sh:  32, fs: 32, fr: 2 },
-  night_imp:        { src: '/sprites/monsters2/night_imp.png',       sw:  64, sh:  32, fs: 32, fr: 2 },
-  spectral_hound:   { src: '/sprites/monsters2/spectral_hound.png',  sw:  64, sh:  32, fs: 32, fr: 2 },
-  shadow_man:       { src: '/sprites/monsters2/shadow_man.png',      sw:  64, sh:  32, fs: 32, fr: 2 },
-  plaguebearer:     { src: '/sprites/monsters2/plaguebearer.png',    sw:  64, sh:  32, fs: 32, fr: 2 },
-  large_snake:      { src: '/sprites/monsters2/large_snake.png',     sw:  64, sh:  32, fs: 32, fr: 2 },
-  reaper:           { src: '/sprites/monsters2/reaper.png',          sw:  64, sh:  32, fs: 32, fr: 2 },
-  frost_yetling:    { src: '/sprites/monsters2/frost_yetling.png',   sw:  64, sh:  32, fs: 32, fr: 2 },
-  toxic_slime:      { src: '/sprites/monsters2/toxic_slime.png',     sw:  64, sh:  32, fs: 32, fr: 2 },
-  molten_golem:     { src: '/sprites/monsters2/molten_golem.png',    sw:  64, sh:  32, fs: 32, fr: 2 },
-  mirrorfiend:      { src: '/sprites/monsters2/mirrorfiend.png',     sw:  64, sh:  32, fs: 32, fr: 2 },
-  skeleton:         { src: '/sprites/monsters2/skeleton.png',        sw:  96, sh:  32, fs: 32, fr: 3 },
-  chaos_imp:        { src: '/sprites/monsters2/chaos_imp.png',       sw:  96, sh:  32, fs: 32, fr: 3 },
-  skeleton_warrior: { src: '/sprites/monsters2/skeleton_warrior.png',sw:  96, sh:  32, fs: 32, fr: 3 },
-  fire_elemental:   { src: '/sprites/monsters2/fire_elemental.png',  sw: 128, sh:  32, fs: 32, fr: 4 },
-  phantom_minotaur: { src: '/sprites/monsters2/phantom_minotaur.png',sw: 144, sh:  48, fs: 48, fr: 3 },
-  frost_golem:      { src: '/sprites/monsters2/frost_golem.png',     sw: 144, sh:  48, fs: 48, fr: 3, dp: 52 },
-  giant_spider:     { src: '/sprites/monsters2/giant_spider.png',    sw: 256, sh:  64, fs: 64, fr: 4, dp: 60 },
-  cave_troll:       { src: '/sprites/monsters2/cave_troll.png',      sw: 256, sh:  64, fs: 64, fr: 4, dp: 60 },
-  sandworm:         { src: '/sprites/monsters2/sandworm.png',        sw: 128, sh:  32, fs: 32, fr: 4 },
-  volcano_drake:    { src: '/sprites/monsters2/volcano_drake.png',   sw: 256, sh:  64, fs: 64, fr: 4, dp: 64 },
-  happy_blob:       { src: '/sprites/monsters2/happy_blob.png',      sw: 256, sh:  64, fs: 64, fr: 4, dp: 56 },
+  green_slime:      { src: '/sprites/monsters2/green_slime.png',     sw:  32, sh:  32, fs: 32, fr: 1, dp: 52 },
+  rat:              { src: '/sprites/monsters2/rat.png',             sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  tiny_spider:      { src: '/sprites/monsters2/tiny_spider.png',     sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  forest_imp:       { src: '/sprites/monsters2/forest_imp.png',      sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  wisp:             { src: '/sprites/monsters2/wisp.png',            sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  goblin:           { src: '/sprites/monsters2/goblin.png',          sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  night_imp:        { src: '/sprites/monsters2/night_imp.png',       sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  spectral_hound:   { src: '/sprites/monsters2/spectral_hound.png',  sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  shadow_man:       { src: '/sprites/monsters2/shadow_man.png',      sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  plaguebearer:     { src: '/sprites/monsters2/plaguebearer.png',    sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  large_snake:      { src: '/sprites/monsters2/large_snake.png',     sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  reaper:           { src: '/sprites/monsters2/reaper.png',          sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  frost_yetling:    { src: '/sprites/monsters2/frost_yetling.png',   sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  toxic_slime:      { src: '/sprites/monsters2/toxic_slime.png',     sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  molten_golem:     { src: '/sprites/monsters2/molten_golem.png',    sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  mirrorfiend:      { src: '/sprites/monsters2/mirrorfiend.png',     sw:  64, sh:  32, fs: 32, fr: 2, dp: 52 },
+  skeleton:         { src: '/sprites/monsters2/skeleton.png',        sw:  96, sh:  32, fs: 32, fr: 3, dp: 52 },
+  chaos_imp:        { src: '/sprites/monsters2/chaos_imp.png',       sw:  96, sh:  32, fs: 32, fr: 3, dp: 52 },
+  skeleton_warrior: { src: '/sprites/monsters2/skeleton_warrior.png',sw:  96, sh:  32, fs: 32, fr: 3, dp: 56 },
+  fire_elemental:   { src: '/sprites/monsters2/fire_elemental.png',  sw: 128, sh:  32, fs: 32, fr: 4, dp: 56 },
+  phantom_minotaur: { src: '/sprites/monsters2/phantom_minotaur.png',sw: 144, sh:  48, fs: 48, fr: 3, dp: 64 },
+  frost_golem:      { src: '/sprites/monsters2/frost_golem.png',     sw: 144, sh:  48, fs: 48, fr: 3, dp: 64 },
+  giant_spider:     { src: '/sprites/monsters2/giant_spider.png',    sw: 256, sh:  64, fs: 64, fr: 4, dp: 80 },
+  cave_troll:       { src: '/sprites/monsters2/cave_troll.png',      sw: 256, sh:  64, fs: 64, fr: 4, dp: 80 },
+  sandworm:         { src: '/sprites/monsters2/sandworm.png',        sw: 128, sh:  32, fs: 32, fr: 4, dp: 56 },
+  volcano_drake:    { src: '/sprites/monsters2/volcano_drake.png',   sw: 256, sh:  64, fs: 64, fr: 4, dp: 88 },
+  happy_blob:       { src: '/sprites/monsters2/happy_blob.png',      sw: 256, sh:  64, fs: 64, fr: 4, dp: 80 },
   // JRPG Pack - single-frame sprites
-  evil_shroom:      { src: '/sprites/monsters2/evil_shroom.png',     sw:  32, sh:  32, fs: 32, fr: 1 },
-  void_devil:       { src: '/sprites/monsters2/void_devil.png',      sw:  32, sh:  32, fs: 32, fr: 1 },
-  wild_buck:        { src: '/sprites/monsters2/wild_buck.png',       sw:  48, sh:  48, fs: 48, fr: 1 },
-  mimic:            { src: '/sprites/monsters2/mimic.png',           sw:  48, sh:  48, fs: 48, fr: 1 },
-  rock_golem:       { src: '/sprites/monsters2/rock_golem.png',      sw:  48, sh:  48, fs: 48, fr: 1, dp: 54 },
-  jrpg_ogre:        { src: '/sprites/monsters2/jrpg_ogre.png',       sw:  48, sh:  48, fs: 48, fr: 1, dp: 56 },
+  evil_shroom:      { src: '/sprites/monsters2/evil_shroom.png',     sw:  32, sh:  32, fs: 32, fr: 1, dp: 52 },
+  void_devil:       { src: '/sprites/monsters2/void_devil.png',      sw:  32, sh:  32, fs: 32, fr: 1, dp: 52 },
+  wild_buck:        { src: '/sprites/monsters2/wild_buck.png',       sw:  48, sh:  48, fs: 48, fr: 1, dp: 64 },
+  mimic:            { src: '/sprites/monsters2/mimic.png',           sw:  48, sh:  48, fs: 48, fr: 1, dp: 64 },
+  rock_golem:       { src: '/sprites/monsters2/rock_golem.png',      sw:  48, sh:  48, fs: 48, fr: 1, dp: 64 },
+  jrpg_ogre:        { src: '/sprites/monsters2/jrpg_ogre.png',       sw:  48, sh:  48, fs: 48, fr: 1, dp: 68 },
   // Dark Fantasy Enemies - Bat (animated 9-frame idle strip)
-  cave_bat:         { src: '/sprites/monsters2/cave_bat.png',        sw: 576, sh:  64, fs: 64, fr: 9 },
-  // Scifi Pack - walk loops start at frame 0
-  cyber_walker:     { src: '/sprites/monsters2/cyber_walker.png',    sw: 400, sh: 160, fs: 40, fr: 4 },
-  cyber_drone:      { src: '/sprites/monsters2/cyber_drone.png',     sw: 320, sh: 288, fs: 32, fr: 4 },
+  cave_bat:         { src: '/sprites/monsters2/cave_bat.png',        sw: 576, sh:  64, fs: 64, fr: 9, dp: 80 },
+  // Cyber Tooth - Super Dead Gunner head animation (5-frame, 48x48)
+  cyber_walker:     { src: '/sprites/monsters2/cyber_tooth.png',     sw: 240, sh:  48, fs: 48, fr: 5, dp: 72 },
+  cyber_drone:      { src: '/sprites/monsters2/cyber_drone.png',     sw: 320, sh: 288, fs: 32, fr: 4, dp: 52 },
 };
 
 export default function PlayerCard({ player, gold, xp, isSelected, onClick, monsterDamage, monsterBaseline, lastHit, streak, monster, prestige, badges, onPrestige }) {
@@ -83,6 +96,17 @@ export default function PlayerCard({ player, gold, xp, isSelected, onClick, mons
   const title = getPlayerTitle(badges || []);
   const prestigeCount = prestige || 0;
   const earnedBadges = (badges || []).map(id => BADGES.find(b => b.id === id)).filter(Boolean);
+
+  // Coin flip on gold gain
+  const prevGoldRef = useRef(gold);
+  const [coinFlipping, setCoinFlipping] = useState(false);
+  useEffect(() => {
+    if (gold > prevGoldRef.current) {
+      setCoinFlipping(true);
+      setTimeout(() => setCoinFlipping(false), 500);
+    }
+    prevGoldRef.current = gold;
+  }, [gold]);
 
   // Hit flash state: triggered by lastHit changing
   const [hitting, setHitting] = useState(false);
@@ -114,7 +138,7 @@ export default function PlayerCard({ player, gold, xp, isSelected, onClick, mons
         {title && <div className="player-title">{title}</div>}
         <div className="player-class">{charCfg.label}</div>
         <div className="player-pts">
-          <span className="gold-coin" />
+          <span className={`gold-coin${coinFlipping ? ' flipping' : ''}`} />
           <span className="pixel-num">{gold}</span>
           <span className="player-pts-label">gold</span>
         </div>
@@ -180,9 +204,10 @@ export default function PlayerCard({ player, gold, xp, isSelected, onClick, mons
           )}
         </div>
         <div className="hp-text"><span className="pixel-num">{dead ? `+${m.gold} gold!` : `HP ${hp}/${m.maxHP}`}</span></div>
-        <div className="hp-bar-outer">
-          <div className={`hp-bar-fill${low ? ' low' : ''}`} style={{ width: `${pct}%` }} />
-        </div>
+        {dead
+          ? <div className="hp-bar-outer"><div className="hp-bar-fill" style={{ width: '0%' }} /></div>
+          : <HpSegBar hp={hp} maxHP={m.maxHP} low={low} />
+        }
       </div>
     </div>
   );

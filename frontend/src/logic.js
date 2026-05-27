@@ -1,5 +1,99 @@
 import { MONSTERS, REWARDS, LOOT_TABLE, TITLES } from './data';
 
+// ── Dungeon map ────────────────────────────────────────────────────────────────
+
+function roomHash(playerId, dayKey, x, y) {
+  return `${playerId}${dayKey}${x},${y}`.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0) >>> 0;
+}
+
+// Deterministic tile type for any coordinate — infinite procedural map
+export function getTileAt(playerId, dayKey, x, y) {
+  if (x === 0 && y === 0) return 'start';
+  const h = roomHash(playerId, dayKey, x, y);
+  const r = (h >>> 0) / 0xffffffff;
+  if (r < 0.30) return 'corridor';
+  if (r < 0.52) return 'empty';
+  if (r < 0.64) return 'gold_s';
+  if (r < 0.72) return 'gold_l';
+  if (r < 0.80) return 'trap';
+  if (r < 0.91) return 'monster';
+  return 'chest';
+}
+
+export function initDungeonMap(playerId, dayKey) {
+  return {
+    pos: [0, 0],
+    explored: ['0,0'],
+    pendingMoves: 0,
+    activeMonster: null,
+    dayKey,
+  };
+}
+
+export function dungeonMoveResult(mapState, dx, dy, playerId, dayKey, playerMode, luckLevel) {
+  const [px, py] = mapState.pos;
+  if (mapState.pendingMoves <= 0) return null;
+
+  const nx = px + dx;
+  const ny = py + dy;
+  const key = `${nx},${ny}`;
+  const roomType = getTileAt(playerId, dayKey, nx, ny);
+  const alreadyVisited = mapState.explored.includes(key);
+  const newExplored = alreadyVisited ? mapState.explored : [...mapState.explored, key];
+
+  let goldDelta = 0;
+  let newActiveMonster = null;
+  let event = null;
+
+  if (!alreadyVisited) {
+    const h = roomHash(playerId, dayKey, nx, ny);
+    const luckMult = 1 + luckLevel * 1.2;
+    switch (roomType) {
+      case 'gold_s': {
+        goldDelta = Math.round((4 + (h % 7)) * luckMult);
+        event = { kind: 'gold', label: 'Found coins', gold: goldDelta };
+        break;
+      }
+      case 'gold_l': {
+        goldDelta = Math.round((14 + (h % 12)) * luckMult);
+        event = { kind: 'gold', label: 'Found treasure', gold: goldDelta };
+        break;
+      }
+      case 'chest': {
+        goldDelta = Math.round((28 + (h % 22)) * luckMult);
+        event = { kind: 'chest', label: 'Treasure chest!', gold: goldDelta };
+        break;
+      }
+      case 'trap': {
+        const raw = 3 + (h % 7);
+        const reduced = Math.max(1, Math.round(raw * (1 - luckLevel * 0.6)));
+        goldDelta = -reduced;
+        event = { kind: 'trap', label: 'Triggered a trap!', gold: reduced };
+        break;
+      }
+      case 'monster': {
+        const mIdx = h % MONSTERS.length;
+        const m = MONSTERS[mIdx];
+        const isKid = playerMode === 'kids';
+        newActiveMonster = { id: m.id, name: m.name, gold: isKid ? m.kidGold : m.gold };
+        event = { kind: 'monster', label: `${m.name} lurks!` };
+        break;
+      }
+      default: break;
+    }
+  }
+
+  const newMap = {
+    ...mapState,
+    pos: [nx, ny],
+    explored: newExplored,
+    pendingMoves: mapState.pendingMoves - 1,
+    activeMonster: newActiveMonster,
+  };
+
+  return { newMap, goldDelta, event };
+}
+
 export function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;

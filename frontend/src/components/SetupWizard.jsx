@@ -404,7 +404,7 @@ function StepChoreSelect({ players, enabledChores, onToggle, choreOverrides, onO
 }
 
 // ── Step 4: Reward selection ──────────────────────────────────────────────────
-function StepRewardSelect({ players, enabledRewards, onToggle, rewardOverrides, onOverride, customRewards, onAddCustom, onRemoveCustom, onBack, onLaunch, isEdit }) {
+function StepRewardSelect({ players, enabledRewards, onToggle, rewardOverrides, onOverride, customRewards, onAddCustom, onRemoveCustom, onBack, onLaunch, isEdit, crtEnabled, onToggleCrt }) {
   const [addingCustom, setAddingCustom] = useState(false);
   const [form, setForm] = useState({ name: '', icon: '🏆', cost: 20, who: 'all', desc: '' });
 
@@ -501,7 +501,20 @@ function StepRewardSelect({ players, enabledRewards, onToggle, rewardOverrides, 
       ) : (
         <button style={{ ...S.btn, width: '100%', marginBottom: 16 }} onClick={() => setAddingCustom(true)}>+ Add custom reward</button>
       )}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+      <div style={{ marginTop: 20, borderTop: '1px solid #2a2a4a', paddingTop: 16 }}>
+        <div style={{ ...S.label, marginBottom: 10 }}>DISPLAY</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            style={{ ...(crtEnabled ? S.btnPrimary : S.btn), padding: '6px 14px', fontSize: 11 }}
+            onClick={onToggleCrt}
+          >
+            {crtEnabled ? '✓ CRT Scanlines ON' : 'CRT Scanlines OFF'}
+          </button>
+          <span style={{ color: '#5a5a7a', fontSize: 10 }}>Retro CRT overlay effect</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
         <button style={S.btn} onClick={onBack}>← Back</button>
         <button style={S.btnPrimary} onClick={onLaunch}>
           {isEdit ? 'Save Changes ✓' : 'Launch the Adventure! ⚔'}
@@ -579,6 +592,8 @@ export default function SetupWizard({ onComplete, onCancel, initialConfig }) {
     setRewardOverrides(prev => ({ ...prev, [id]: ov }));
   }
 
+  const [crtEnabled, setCrtEnabled] = useState(initialConfig?.crtEnabled ?? true);
+
   async function handleLaunch() {
     setLaunching(true);
     await onComplete({
@@ -589,6 +604,7 @@ export default function SetupWizard({ onComplete, onCancel, initialConfig }) {
       enabledRewards: [...enabledRewards],
       rewardOverrides,
       customRewards,
+      crtEnabled,
     });
   }
 
@@ -656,6 +672,8 @@ export default function SetupWizard({ onComplete, onCancel, initialConfig }) {
               onBack={() => setStep(3)}
               onLaunch={handleLaunch}
               isEdit={isEdit}
+              crtEnabled={crtEnabled}
+              onToggleCrt={() => setCrtEnabled(v => !v)}
             />
           )}
         </div>

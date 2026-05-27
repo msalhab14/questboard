@@ -1,14 +1,50 @@
 # Questboard
 
-> Turn household chores into a pixel art RPG adventure.
+> Turn household chores into a pixel art RPG adventure for the whole family.
 
-Each family member gets a hero and faces a daily monster. Complete chores to deal damage — defeat the monster before midnight to earn gold, or it fights back. Spend gold in the reward shop on treats you've agreed on as a family.
+Each family member gets a hero and a daily monster to fight. Complete chores to deal damage — defeat the monster before midnight to earn gold, or it strikes back. Spend gold on rewards you've agreed on as a family.
 
-![Questboard](https://raw.githubusercontent.com/thillygooth/questboard/main/screenshot.png)
+Built to run on a kitchen tablet, locked to a browser, always-on.
+
+![Questboard main screen](screenshot.png)
 
 [![Release](https://img.shields.io/github/v/release/thillygooth/questboard)](https://github.com/thillygooth/questboard/releases)
 [![License](https://img.shields.io/github/license/thillygooth/questboard)](LICENSE)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/thillygooth)
+
+---
+
+## What it looks like
+
+The interface runs fullscreen in the browser. Each player gets a card with their hero, live HP bar, and current monster. Completing chores hits the monster — chain them fast for combo damage, score a crit, or find loot drops.
+
+**Player card** — hero class, gold, XP bar, crit %, streak  
+**Monster section** — animated pixel art enemy, segmented HP bar, kill = gold reward  
+**Chore grid** — daily / weekly / monthly quests shown with damage values  
+**Dungeon map** — per-player fog-of-war grid; chores earn moves, rooms hide gold, traps, and mini-bosses  
+**Reward shop** — spend gold on family rewards you configure in setup  
+**History** — full log of kills, loot drops, rewards redeemed, badges earned
+
+---
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| ⚔ Monster battles | Each player fights a unique animated monster every day |
+| 💥 Crit hits | 5% base crit chance, increases as you level up |
+| 🔥 Kill streaks | Multi-day streaks multiply gold rewards (up to 2×) |
+| 🎯 Combo attacks | Chain chores within 8 seconds for up to 2.5× bonus |
+| 🎲 Loot drops | Chance to find bonus gold or XP on any chore |
+| 🏅 Badges & titles | Unlock achievements and earn a hero title |
+| ⭐ Prestige | Reset XP at level 10 for a permanent gold % bonus |
+| 🗺 Dungeon map | Explore a per-player fog-of-war dungeon — chores = moves |
+| 🏆 Weekly leaderboard | See who earned the most gold this week |
+| ⚡ Auto-resets | Daily/weekly/monthly chores reset at exactly the right time |
+| 🌙 Overnight penalty | Fail to kill your monster and lose gold at midnight |
+| 👥 Up to 6 players | Each with their own hero, monster, gold, XP, and dungeon |
+| 📱 Kids & adults modes | Separate difficulty scaling — kids get easier monsters |
+| 🎮 CRT overlay | Optional scanline filter for maximum retro vibes |
 
 ---
 
@@ -40,25 +76,7 @@ panel_iframe:
 
 Replace `<your-ha-ip>` with your Home Assistant IP (e.g. `192.168.1.34`). Find it under **Settings → System → Network**.
 
-Then restart HA (**Settings → System → Restart**). Questboard appears in your sidebar.
-
----
-
-## Features
-
-- **Monster battles** — each player fights a unique monster every day
-- **Crit hits** — 5% base chance to double damage, increases as you level up
-- **XP & levels** — defeat monsters to gain XP and raise your crit chance
-- **Kill streaks** — multi-day streaks multiply gold rewards (up to 2x)
-- **Combo attacks** — chain chores quickly for bonus damage
-- **Loot drops** — chance to find bonus gold or XP after completing a chore
-- **Badges & titles** — unlock achievements and earn a hero title
-- **Prestige** — reset XP at level 10 for a permanent gold bonus
-- **Gold economy** — earn gold by winning, spend it in the family reward shop
-- **Weekly leaderboard** — see who earned the most gold this week
-- **Smart resets** — daily/weekly/monthly chores reset automatically at the right time
-- **Overnight penalty** — fail to defeat your monster and lose gold when you sleep
-- **Up to 6 players** — each with their own monster, gold, XP, and streak
+Restart HA (**Settings → System → Restart**). Questboard appears in your sidebar.
 
 ---
 
@@ -79,9 +97,7 @@ Open `http://localhost:8099`.
 
 ## Running on a Separate Host
 
-Questboard has no connection to Home Assistant — it's a standalone web app that stores its own data. You can run it on any machine on your network, not just the HA host.
-
-To add it to the HA sidebar from a separate Docker host, just point the `url` at that machine's IP:
+Questboard is a standalone web app — no connection to Home Assistant required. Run it on any machine on your network.
 
 ```yaml
 panel_iframe:
@@ -92,7 +108,7 @@ panel_iframe:
     require_admin: false
 ```
 
-Replace `<docker-host-ip>` with the IP of whichever machine is running the container (e.g. `192.168.1.50`). The sidebar embeds any reachable URL — it doesn't need to be on the HA host.
+Replace `<docker-host-ip>` with the IP of whichever machine is running the container.
 
 ---
 
@@ -101,9 +117,10 @@ Replace `<docker-host-ip>` with the IP of whichever machine is running the conta
 A setup wizard runs the first time you open the app:
 
 1. Set the number of players (1–6)
-2. For each player: name, difficulty (easy/kids or hard/adults), avatar, class
-3. Choose which chores to track — toggle any on/off, or add custom ones
-4. Start the adventure
+2. For each player: name, difficulty (kids / adults), avatar class
+3. Choose which chores to track — toggle any on/off, set custom values, add your own
+4. Configure the reward shop — enable/disable rewards, set custom costs
+5. Toggle the CRT scanline overlay on or off
 
 ---
 
@@ -125,3 +142,5 @@ The dev server proxies `/api/*` to the backend automatically.
 ## License
 
 [MIT](LICENSE) — free to use, fork, and share.
+
+Sprite assets from [OpenGameArt.org](https://opengameart.org) under CC-BY / CC0 licenses. Font: [Pixelated Elegance](https://www.fontspace.com/pixelated-elegance-font-f126145) by GGBotNet (CC0).

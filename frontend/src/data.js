@@ -148,7 +148,7 @@ export const MONSTERS = [
   { id: 'fire_elemental', name: 'Fire Elemental',    adultHP: 12, kidHP:  9, atk:  5, gold: 13, kidGold:  7 },
   { id: 'phantom_minotaur',name: 'Phantom Minotaur', adultHP: 12, kidHP:  9, atk:  6, gold: 14, kidGold:  7 },
   { id: 'rock_golem',     name: 'Rock Golem',        adultHP: 11, kidHP:  8, atk:  5, gold: 13, kidGold:  6 },
-  { id: 'cyber_walker',   name: 'Cyber Walker',      adultHP: 12, kidHP:  9, atk:  6, gold: 14, kidGold:  7 },
+  { id: 'cyber_walker',   name: 'Cyber Tooth',       adultHP: 12, kidHP:  9, atk:  6, gold: 14, kidGold:  7 },
 
   // Tier 5: boss monsters, ~5 chores to defeat
   { id: 'frost_golem',    name: 'Frost Golem',       adultHP: 12, kidHP:  9, atk:  6, gold: 16, kidGold:  8 },
@@ -223,7 +223,7 @@ export const MONSTER_TAUNTS = {
   fire_elemental:   "Scorched earth, scorched savings.",
   phantom_minotaur: "Lost in the labyrinth, losing gold.",
   rock_golem:       "Crushed your piggy bank.",
-  cyber_walker:     "ERROR: Unauthorized gold transfer.",
+  cyber_walker:     "CRUNCH! The Cyber Tooth devours your coins.",
   frost_golem:      "Your gold is now an ice sculpture.",
   giant_spider:     "Webbed up tight, gold sucked dry!",
   cave_troll:       "TOLL! The troll always collects.",

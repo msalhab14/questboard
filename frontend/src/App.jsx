@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ALL_CHORES, REWARDS, BADGES, MONSTER_TAUNTS } from './data';
-import { todayKey, weekKey, monthKey, dateSeededMonster, randomMonster, resolveMonster, getLevelFromXP, critChanceForLevel, luckForLevel, streakMultiplier, dailyBonusChoreId, rollLoot, checkNewBadges, getPlayerTitle } from './logic';
+import { todayKey, weekKey, monthKey, dateSeededMonster, randomMonster, resolveMonster, getLevelFromXP, critChanceForLevel, luckForLevel, streakMultiplier, dailyBonusChoreId, rollLoot, checkNewBadges, getPlayerTitle, initDungeonMap, dungeonMoveResult } from './logic';
 import PlayerCard from './components/PlayerCard';
 import ChoreGrid from './components/ChoreGrid';
 import RewardGrid from './components/RewardGrid';
 import HistoryTab from './components/HistoryTab';
 import DungeonBackground from './components/DungeonBackground';
+import Torches from './components/Torches';
+import DungeonMap from './components/DungeonMap';
 import TileSprite from './components/TileSprite';
 import Celebration from './components/Celebration';
 import SetupWizard from './components/SetupWizard';
@@ -34,6 +36,7 @@ function makeDefaultState(players) {
     monsterBaseline: {},
     monsterPenalties: {},
     assignedMonsters: {},
+    dungeonMaps: {},
   };
 }
 
@@ -106,6 +109,9 @@ function applyAutoResets(raw, players) {
     state.dailyDone = {};
     state.todayKey = todayKey();
     state.monsterBaseline = {};
+    const freshMaps = {};
+    players.forEach(pl => { freshMaps[pl.id] = initDungeonMap(pl.id, state.todayKey); });
+    state.dungeonMaps = freshMaps;
     changed = true;
   }
 
@@ -121,6 +127,17 @@ function applyAutoResets(raw, players) {
     state.monthKey = monthKey();
     changed = true;
   }
+
+  // Migrate: ensure all players have a valid (new-format) dungeon map for today
+  if (!state.dungeonMaps) state.dungeonMaps = {};
+  players.forEach(pl => {
+    const dm = state.dungeonMaps[pl.id];
+    // Reinit if missing, wrong day, or old format (has a grid property)
+    if (!dm || dm.grid !== undefined || dm.dayKey !== state.todayKey) {
+      state.dungeonMaps[pl.id] = initDungeonMap(pl.id, state.todayKey || todayKey());
+      changed = true;
+    }
+  });
 
   return { state, changed, penaltyMsgs };
 }
@@ -308,6 +325,21 @@ export default function App() {
     const lootGold = loot?.gold ?? 0;
     const lootXp   = loot?.xp   ?? 0;
 
+    // Dungeon map: kill active mini-monster or grant 1 pending move
+    const dungeonMap = serverState.dungeonMaps?.[selected];
+    let dungeonGoldBonus = 0;
+    let dungeonKillName = '';
+    let newDungeonMaps = serverState.dungeonMaps ?? {};
+    if (dungeonMap) {
+      if (dungeonMap.activeMonster) {
+        dungeonGoldBonus = dungeonMap.activeMonster.gold;
+        dungeonKillName = dungeonMap.activeMonster.name;
+        newDungeonMaps = { ...newDungeonMaps, [selected]: { ...dungeonMap, activeMonster: null } };
+      } else {
+        newDungeonMaps = { ...newDungeonMaps, [selected]: { ...dungeonMap, pendingMoves: (dungeonMap.pendingMoves || 0) + 1 } };
+      }
+    }
+
     const newTotalDmg = totalDmg + actualPts;
     const newBaseline = justKilled ? newTotalDmg : baseline;
     const newMonster  = justKilled ? randomMonster(player) : null;
@@ -319,7 +351,7 @@ export default function App() {
       lucky_count:     isLucky    ? prog.lucky_count + 1     : prog.lucky_count,
     };
     const currentBadges = serverState.badges?.[selected] || [];
-    const newGoldTotal   = (serverState.gold[selected] || 0) + totalGoldGain + lootGold;
+    const newGoldTotal   = (serverState.gold[selected] || 0) + totalGoldGain + lootGold + dungeonGoldBonus;
     const newBadgeIds = checkNewBadges(currentBadges, {
       streak: currentStreak,
       gold: newGoldTotal,
@@ -361,6 +393,7 @@ export default function App() {
       assignedMonsters: justKilled
         ? { ...serverState.assignedMonsters, [selected]: newMonster }
         : serverState.assignedMonsters,
+      dungeonMaps: newDungeonMaps,
     };
 
     await updateState(newState);
@@ -383,10 +416,11 @@ export default function App() {
     const streakTag = justKilled && currentStreak >= 3 ? ` ${currentStreak}-day streak x${sMultiplier}!` : '';
     const lootTag   = loot                 ? ` ${loot.icon} Found ${loot.name}!`            : '';
     const badgeTag  = newBadgeIds.length   ? ` 🏅 ${BADGES.find(b => b.id === newBadgeIds[0])?.name}!` : '';
+    const dungeonTag = dungeonGoldBonus > 0 ? ` [☠${dungeonKillName} +${dungeonGoldBonus}g]` : '';
 
     const msg = justKilled
-      ? `${player.name} slew ${m.name}!${critTag} +${totalGoldGain}g${streakTag}${luckyTag}${lootTag}${levelTag}${badgeTag}`
-      : `${player.name} hits for ${actualPts}!${critTag}${comboTag}${bonusTag} HP:${hp}/${m.maxHP}${lootTag}`;
+      ? `${player.name} slew ${m.name}!${critTag} +${totalGoldGain}g${streakTag}${luckyTag}${lootTag}${levelTag}${badgeTag}${dungeonTag}`
+      : `${player.name} hits for ${actualPts}!${critTag}${comboTag}${bonusTag} HP:${hp}/${m.maxHP}${lootTag}${dungeonTag}`;
     showToast(msg);
   }, [selected, serverState, players, activeChores, bonusChoreId, updateState, showToast]);
 
@@ -489,6 +523,29 @@ export default function App() {
     showToast(`${player.name} prestiged! +${currentPrestige * 5}% gold bonus forever! ⭐`);
   }, [serverState, players, updateState, showToast]);
 
+  const handleDungeonMove = useCallback(async (playerId, dx, dy) => {
+    if (!serverState) return;
+    const player = players.find(p => p.id === playerId);
+    const dungeonMap = serverState.dungeonMaps?.[playerId];
+    if (!dungeonMap) return;
+    const { level } = getLevelFromXP(serverState.xp?.[playerId] || 0);
+    const luck = luckForLevel(level);
+    const result = dungeonMoveResult(dungeonMap, dx, dy, playerId, todayKey(), player.mode, luck);
+    if (!result) return;
+    const { newMap, goldDelta, event } = result;
+    const newGold = Math.max(0, (serverState.gold[playerId] || 0) + goldDelta);
+    const newState = {
+      ...serverState,
+      gold: { ...serverState.gold, [playerId]: newGold },
+      dungeonMaps: { ...serverState.dungeonMaps, [playerId]: newMap },
+    };
+    if (event) {
+      const goldTag = event.gold ? (goldDelta >= 0 ? ` +${event.gold}g` : ` -${event.gold}g`) : '';
+      showToast(`${player.name}: ${event.label}${goldTag}`);
+    }
+    await updateState(newState);
+  }, [serverState, players, updateState, showToast]);
+
   const resetWeek = useCallback(async () => {
     if (!confirm('Reset chores, gold, and monsters? History will be kept.')) return;
     const freshMonsters = {};
@@ -570,6 +627,12 @@ export default function App() {
     setShowSettings(false);
   }, [serverState]);
 
+  // Apply/remove CRT class on body
+  useEffect(() => {
+    const enabled = config?.crtEnabled ?? true;
+    document.body.classList.toggle('crt', enabled);
+  }, [config?.crtEnabled]);
+
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text2)', fontSize: 14 }}>
@@ -606,6 +669,7 @@ export default function App() {
   return (
     <>
     <DungeonBackground />
+    <Torches />
     <div className="board" style={{ position: 'relative', zIndex: 1 }}>
       <div className="header">
         <span className="title"><TileSprite tile={118} display={18} /> Questboard</span>
@@ -615,6 +679,9 @@ export default function App() {
           </button>
           <button className={`tab${currentTab === 'rewards' ? ' active' : ''}`} onClick={() => setCurrentTab('rewards')}>
             <TileSprite tile={72} display={14} /> Rewards
+          </button>
+          <button className={`tab${currentTab === 'dungeon' ? ' active' : ''}`} onClick={() => setCurrentTab('dungeon')}>
+            <TileSprite tile={117} display={14} /> Dungeon
           </button>
           <button className={`tab${currentTab === 'history' ? ' active' : ''}`} onClick={() => setCurrentTab('history')}>
             <TileSprite tile={116} display={14} /> History
@@ -671,6 +738,16 @@ export default function App() {
                 onRedeemReward={redeemReward}
               />
             : <div className="no-select">Select a hero above to browse the shop.</div>
+        )}
+        {currentTab === 'dungeon' && (
+          selected && selectedPlayer && state.dungeonMaps?.[selected]
+            ? <DungeonMap
+                player={selectedPlayer}
+                dungeonMap={state.dungeonMaps[selected]}
+                onMove={(dx, dy) => handleDungeonMove(selected, dx, dy)}
+                cellSize={32}
+              />
+            : <div className="no-select">Select a hero above to explore the dungeon.</div>
         )}
         {currentTab === 'history' && (
           <HistoryTab history={state.history || []} players={players} weeklyGold={state.weeklyGold || {}} />
