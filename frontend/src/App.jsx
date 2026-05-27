@@ -111,9 +111,8 @@ function applyAutoResets(raw, players) {
     state.monsterBaseline = {};
     const freshMaps = {};
     players.forEach(pl => {
-      const { level } = getLevelFromXP(state.xp?.[pl.id] || 0);
-      const startMoves = 2 + Math.floor(level / 3);
-      freshMaps[pl.id] = { ...initDungeonMap(pl.id, state.todayKey), pendingMoves: startMoves };
+      const startMoves = 5 + Math.floor(Math.random() * 6);
+      freshMaps[pl.id] = { ...initDungeonMap(state.todayKey), pendingMoves: startMoves };
     });
     state.dungeonMaps = freshMaps;
     changed = true;
@@ -137,9 +136,8 @@ function applyAutoResets(raw, players) {
   players.forEach(pl => {
     const dm = state.dungeonMaps[pl.id];
     if (!dm || dm.grid !== undefined || dm.dayKey !== state.todayKey) {
-      const { level } = getLevelFromXP(state.xp?.[pl.id] || 0);
-      const startMoves = 2 + Math.floor(level / 3);
-      state.dungeonMaps[pl.id] = { ...initDungeonMap(pl.id, state.todayKey || todayKey()), pendingMoves: startMoves };
+      const startMoves = 5 + Math.floor(Math.random() * 6);
+      state.dungeonMaps[pl.id] = { ...initDungeonMap(state.todayKey || todayKey()), pendingMoves: startMoves };
       changed = true;
     }
   });
@@ -535,7 +533,7 @@ export default function App() {
     if (!dungeonMap) return;
     const { level } = getLevelFromXP(serverState.xp?.[playerId] || 0);
     const luck = luckForLevel(level);
-    const result = dungeonMoveResult(dungeonMap, dx, dy, playerId, todayKey(), player.mode, luck);
+    const result = dungeonMoveResult(dungeonMap, dx, dy, todayKey(), player.mode, luck);
     if (!result) return;
     const { newMap, goldDelta, event } = result;
     const newGold = Math.max(0, (serverState.gold[playerId] || 0) + goldDelta);
@@ -749,6 +747,8 @@ export default function App() {
             ? <DungeonMap
                 player={selectedPlayer}
                 dungeonMap={state.dungeonMaps[selected]}
+                allPlayers={players}
+                allDungeonMaps={state.dungeonMaps}
                 onMove={(dx, dy) => handleDungeonMove(selected, dx, dy)}
                 cellSize={32}
               />

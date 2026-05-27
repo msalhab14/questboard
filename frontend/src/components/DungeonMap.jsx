@@ -24,6 +24,8 @@ const FLOOR_TILE_SIZE = 32; // puny_dungeon tile size
 // puny_dungeon.png: 416x320, 16px native tiles, we'll use 32x32 sections
 const FLOOR_BG = "url('/sprites/dungeon_floor.png')";
 
+const PLAYER_COLORS = ['#50b8ff', '#50e870', '#ff9050', '#e050ff'];
+
 function getCellStyle(tileType, vis, isPlayer, isCorridor) {
   if (vis === 'fog') {
     return { backgroundColor: '#020105' };
@@ -52,11 +54,22 @@ function getCellStyle(tileType, vis, isPlayer, isCorridor) {
   };
 }
 
-export default function DungeonMap({ player, dungeonMap, onMove, cellSize = CELL }) {
+export default function DungeonMap({ player, dungeonMap, allPlayers = [], allDungeonMaps = {}, onMove, cellSize = CELL }) {
   if (!dungeonMap || !player) return null;
   const { pos, explored, pendingMoves, activeMonster, dayKey } = dungeonMap;
   const [px, py] = pos;
   const canMove = pendingMoves > 0 && !activeMonster;
+
+  // Build a lookup: world key → [{ player, color }] for other players' positions
+  const otherPlayerAt = {};
+  allPlayers.forEach((p, idx) => {
+    if (p.id === player.id) return;
+    const dm = allDungeonMaps[p.id];
+    if (!dm) return;
+    const k = `${dm.pos[0]},${dm.pos[1]}`;
+    if (!otherPlayerAt[k]) otherPlayerAt[k] = [];
+    otherPlayerAt[k].push({ player: p, color: PLAYER_COLORS[idx % PLAYER_COLORS.length] });
+  });
 
   // Build the 9×9 viewport centered on player
   const cells = [];
@@ -77,8 +90,9 @@ export default function DungeonMap({ player, dungeonMap, onMove, cellSize = CELL
       else if (distFromPlayer <= 2) vis = 'shadow';
       else vis = 'fog';
 
-      const tileType = (vis !== 'fog') ? getTileAt(player.id, dayKey, wx, wy) : 'empty';
+      const tileType = (vis !== 'fog') ? getTileAt(dayKey, wx, wy) : 'empty';
       const isCorridor = tileType === 'corridor';
+      const othersHere = otherPlayerAt[key] || [];
 
       // Decide what icon to show
       const styleDef = ROOM_STYLE[tileType] || ROOM_STYLE.empty;
@@ -92,6 +106,7 @@ export default function DungeonMap({ player, dungeonMap, onMove, cellSize = CELL
         icon: styleDef.icon,
         iconColor: styleDef.iconColor,
         cellStyle: getCellStyle(tileType, vis, isPlayer, isCorridor),
+        othersHere,
       });
     }
   }
@@ -106,6 +121,7 @@ export default function DungeonMap({ player, dungeonMap, onMove, cellSize = CELL
         <div className="dmap-legend">
           {[
             { icon: '@',  color: '#50b8ff', label: 'You' },
+            { icon: '@',  color: '#50e870', label: 'Party' },
             { icon: '·',  color: '#c8952a', label: 'Small gold' },
             { icon: '◆',  color: '#e8b84b', label: 'Treasure' },
             { icon: '▣',  color: '#ffe060', label: 'Chest' },
@@ -136,6 +152,31 @@ export default function DungeonMap({ player, dungeonMap, onMove, cellSize = CELL
             <span className="dmap-status-val">{px},{py}</span>
           </div>
         </div>
+
+        {allPlayers.filter(p => p.id !== player.id && allDungeonMaps[p.id]).length > 0 && (
+          <>
+            <div className="dmap-sidebar-title" style={{ marginTop: 18 }}>PARTY</div>
+            <div className="dmap-status">
+              {allPlayers.map((p, idx) => {
+                if (p.id === player.id) return null;
+                const dm = allDungeonMaps[p.id];
+                if (!dm) return null;
+                const [ox, oy] = dm.pos;
+                const dist = Math.max(Math.abs(ox - px), Math.abs(oy - py));
+                const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+                return (
+                  <div key={p.id} className="dmap-status-row">
+                    <span style={{ color, fontFamily: 'var(--pixel)', fontSize: 9 }}>@</span>
+                    <span className="dmap-status-label" style={{ marginLeft: 4 }}>{p.name}</span>
+                    <span className="dmap-status-val" style={{ color: dist === 0 ? color : undefined }}>
+                      {dist === 0 ? 'here!' : `${ox},${oy}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {activeMonster && (
           <div className="dmap-monster-warning">
@@ -176,7 +217,7 @@ export default function DungeonMap({ player, dungeonMap, onMove, cellSize = CELL
             overflow: 'hidden',
           }}
         >
-          {cells.map(({ key, vx, vy, wx, wy, isPlayer, vis, tileType, isCorridor, showIcon, icon, iconColor, cellStyle }) => {
+          {cells.map(({ key, vx, vy, wx, wy, isPlayer, vis, tileType, isCorridor, showIcon, icon, iconColor, cellStyle, othersHere }) => {
             const fontSize = isCorridor ? Math.round(cellSize * 0.3) : Math.round(cellSize * 0.45);
             const isActiveMonsterHere = isPlayer && !!activeMonster;
 
@@ -227,8 +268,23 @@ export default function DungeonMap({ player, dungeonMap, onMove, cellSize = CELL
                   </span>
                 )}
 
+                {/* Other players on this cell */}
+                {othersHere.length > 0 && !isPlayer && vis !== 'fog' && (
+                  <span style={{
+                    fontFamily: 'var(--pixel)',
+                    fontSize: Math.round(cellSize * 0.45),
+                    color: othersHere[0].color,
+                    lineHeight: 1,
+                    textShadow: `0 0 8px ${othersHere[0].color}99`,
+                    position: 'relative',
+                    zIndex: 3,
+                  }}>
+                    @
+                  </span>
+                )}
+
                 {/* Room icon (only on explored, non-player cells) */}
-                {showIcon && !isPlayer && (
+                {showIcon && !isPlayer && othersHere.length === 0 && (
                   <span style={{
                     fontFamily: 'var(--pixel)',
                     fontSize,

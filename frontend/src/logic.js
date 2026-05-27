@@ -2,14 +2,14 @@ import { MONSTERS, REWARDS, LOOT_TABLE, TITLES } from './data';
 
 // ── Dungeon map ────────────────────────────────────────────────────────────────
 
-function roomHash(playerId, dayKey, x, y) {
-  return `${playerId}${dayKey}${x},${y}`.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0) >>> 0;
+function roomHash(dayKey, x, y) {
+  return `${dayKey}${x},${y}`.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0) >>> 0;
 }
 
-// Deterministic tile type for any coordinate — infinite procedural map
-export function getTileAt(playerId, dayKey, x, y) {
+// Deterministic tile type for any coordinate — shared infinite procedural map (all players same world)
+export function getTileAt(dayKey, x, y) {
   if (x === 0 && y === 0) return 'start';
-  const h = roomHash(playerId, dayKey, x, y);
+  const h = roomHash(dayKey, x, y);
   const r = (h >>> 0) / 0xffffffff;
   if (r < 0.30) return 'corridor';
   if (r < 0.52) return 'empty';
@@ -20,7 +20,7 @@ export function getTileAt(playerId, dayKey, x, y) {
   return 'chest';
 }
 
-export function initDungeonMap(playerId, dayKey) {
+export function initDungeonMap(dayKey) {
   return {
     pos: [0, 0],
     explored: ['0,0'],
@@ -30,14 +30,14 @@ export function initDungeonMap(playerId, dayKey) {
   };
 }
 
-export function dungeonMoveResult(mapState, dx, dy, playerId, dayKey, playerMode, luckLevel) {
+export function dungeonMoveResult(mapState, dx, dy, dayKey, playerMode, luckLevel) {
   const [px, py] = mapState.pos;
   if (mapState.pendingMoves <= 0) return null;
 
   const nx = px + dx;
   const ny = py + dy;
   const key = `${nx},${ny}`;
-  const roomType = getTileAt(playerId, dayKey, nx, ny);
+  const roomType = getTileAt(dayKey, nx, ny);
   const alreadyVisited = mapState.explored.includes(key);
   const newExplored = alreadyVisited ? mapState.explored : [...mapState.explored, key];
 
@@ -46,7 +46,7 @@ export function dungeonMoveResult(mapState, dx, dy, playerId, dayKey, playerMode
   let event = null;
 
   if (!alreadyVisited) {
-    const h = roomHash(playerId, dayKey, nx, ny);
+    const h = roomHash(dayKey, nx, ny);
     const luckMult = 1 + luckLevel * 1.2;
     switch (roomType) {
       case 'gold_s': {
