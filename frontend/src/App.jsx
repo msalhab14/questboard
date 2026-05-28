@@ -754,7 +754,7 @@ export default function App() {
   if (needsSetup) {
     return (
       <>
-        <DungeonBackground />
+        {(config?.animatedBg !== false) && <DungeonBackground />}
         <SetupWizard onComplete={handleSetupComplete} />
       </>
     );
@@ -763,7 +763,7 @@ export default function App() {
   if (showSettings) {
     return (
       <>
-        <DungeonBackground />
+        {(config?.animatedBg !== false) && <DungeonBackground />}
         <SetupWizard
           initialConfig={config}
           onComplete={handleEditComplete}
@@ -778,7 +778,7 @@ export default function App() {
 
   return (
     <>
-    <DungeonBackground />
+    {(config?.animatedBg !== false) && <DungeonBackground />}
     <Torches />
     <div className="board" style={{ position: 'relative', zIndex: 2 }}>
       <div className="header">
