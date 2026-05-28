@@ -31,20 +31,25 @@ The interface runs fullscreen in the browser. Each player gets a card with their
 
 | Feature | Description |
 |---------|-------------|
-| ⚔ Monster battles | Each player fights a unique animated monster every day |
+| ⚔ Monster battles | Each player fights a date-seeded monster every day |
 | 💥 Crit hits | 5% base crit chance, increases as you level up |
 | 🔥 Kill streaks | Multi-day streaks multiply gold rewards (up to 2×) |
 | 🎯 Combo attacks | Chain chores within 8 seconds for up to 2.5× bonus |
 | 🎲 Loot drops | Chance to find bonus gold or XP on any chore |
-| 🏅 Badges & titles | Unlock achievements and earn a hero title |
+| ⚡ Overkill system | After the kill, extra chores charge a bar to bank Power Tokens |
+| 🔮 Power-ups | Gold Rush, Double Damage, Shield Aura, Treasure Magnet, Forge Reward |
+| 🛡 Shield Aura | Active power-up blocks the midnight gold penalty |
+| 🏅 Badges & titles | Unlock achievements and choose your hero title |
 | ⭐ Prestige | Reset XP at level 10 for a permanent gold % bonus |
 | 🗺 Dungeon map | Explore a per-player fog-of-war dungeon — chores = moves |
 | 🏆 Weekly leaderboard | See who earned the most gold this week |
 | ⚡ Auto-resets | Daily/weekly/monthly chores reset at exactly the right time |
 | 🌙 Overnight penalty | Fail to kill your monster and lose gold at midnight |
 | 👥 Up to 6 players | Each with their own hero, monster, gold, XP, and dungeon |
+| 👤 Solo chores | Personal tasks (brushing teeth, homework) tracked per player |
 | 📱 Kids & adults modes | Separate difficulty scaling — kids get easier monsters |
 | 🎮 CRT overlay | Optional scanline filter for maximum retro vibes |
+| 🔍 UI Scale | Mini / Heroic / Epic zoom modes for any screen size |
 
 ---
 
@@ -118,9 +123,11 @@ A setup wizard runs the first time you open the app:
 
 1. Set the number of players (1–6)
 2. For each player: name, difficulty (kids / adults), avatar class
-3. Choose which chores to track — toggle any on/off, set custom values, add your own
+3. Choose which chores to track — toggle on/off, set solo vs. shared, adjust values
 4. Configure the reward shop — enable/disable rewards, set custom costs
-5. Toggle the CRT scanline overlay on or off
+5. Configure power-ups and display options (CRT overlay, UI scale)
+
+After launch, tap **Settings** for a tabbed editor: Party, Quests, Rewards, Power-Ups, and Display — no need to re-run the wizard.
 
 ---
 
@@ -144,3 +151,9 @@ The dev server proxies `/api/*` to the backend automatically.
 [MIT](LICENSE) — free to use, fork, and share.
 
 Sprite assets from [OpenGameArt.org](https://opengameart.org) under CC-BY / CC0 licenses. Font: [Pixelated Elegance](https://www.fontspace.com/pixelated-elegance-font-f126145) by GGBotNet (CC0).
+
+---
+
+## Credits
+
+Overkill system, power-ups, solo chore mode, tabbed settings, new hero classes, and gold economy rebalancing contributed by **[TreasuryMatt](https://github.com/TreasuryMatt)** — thanks for the excellent fork!
