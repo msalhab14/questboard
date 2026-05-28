@@ -675,6 +675,63 @@ export default function App() {
     await updateState(newState);
   }, [players, serverState, updateState]);
 
+  const exportSave = useCallback(() => {
+    if (!serverState || !config) return;
+    const backup = {
+      state: serverState,
+      config,
+      exportedAt: new Date().toISOString(),
+      version: '1.0',
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `questboard-backup-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Save exported!');
+  }, [serverState, config, showToast]);
+
+  const importSave = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        if (!backup.state || !backup.config) {
+          showToast('Invalid backup file: missing state or config');
+          return;
+        }
+        if (!confirm('This will replace all current data. Continue?')) return;
+        await Promise.all([
+          fetch(`${API}/config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(backup.config),
+          }),
+          fetch(`${API}/state`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(backup.state),
+          }),
+        ]);
+        setConfig(backup.config);
+        setServerState(backup.state);
+        showToast('Save imported!');
+      } catch (err) {
+        console.error('Import failed', err);
+        showToast('Import failed: invalid JSON file');
+      }
+    };
+    input.click();
+  }, [showToast]);
+
   const handleSetupComplete = useCallback(async (wizardConfig) => {
     const freshState = makeDefaultState(wizardConfig.players);
     const { state: after } = applyAutoResets(freshState, wizardConfig.players, wizardConfig.weekStartDay ?? 1);
@@ -801,6 +858,8 @@ export default function App() {
         <button className="mute-btn" onClick={() => { const next = !muted; setMuted(next); setMutedState(next); }} title={muted ? 'Unmute sounds' : 'Mute sounds'}>{muted ? '\ud83d\udd07' : '\ud83d\udd0a'}</button>
         <button className="reset-btn" onClick={() => setShowSettings(true)}><TileSprite tile={115} display={12} /> Settings</button>
         <button className="reset-btn" onClick={resetWeek}><TileSprite tile={115} display={12} /> Reset week</button>
+        <button className="reset-btn" onClick={exportSave}><TileSprite tile={115} display={12} /> Export Save</button>
+        <button className="reset-btn" onClick={importSave}><TileSprite tile={115} display={12} /> Import Save</button>
       </div>
 
       <div className="players">
