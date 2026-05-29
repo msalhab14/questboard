@@ -6,7 +6,11 @@ Each family member gets a hero and a daily monster to fight. Complete chores to 
 
 Built to run on a kitchen tablet, locked to a browser, always-on.
 
-![Questboard main screen](screenshots_combined.png)
+![Chores](screenshot_chores.png)
+
+![Rewards](screenshot_rewards.png)
+
+![Dungeon](screenshot_dungeon.png)
 
 [![Release](https://img.shields.io/github/v/release/thillygooth/questboard)](https://github.com/thillygooth/questboard/releases)
 [![License](https://img.shields.io/github/license/thillygooth/questboard)](LICENSE)
