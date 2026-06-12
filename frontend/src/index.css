@@ -211,6 +211,27 @@ body.crt::after {
 }
 .mute-btn:hover { border-color: var(--gold-border); }
 
+/* ── Cross-module nav ── */
+.module-nav { display: flex; gap: 6px; flex-shrink: 0; }
+.module-nav-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  font-size: 15px;
+  text-decoration: none;
+  opacity: 0.55;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.module-nav-item:hover {
+  opacity: 0.9;
+  border-color: var(--gold-border);
+}
+
 /* ── Player cards ── */
 .players {
   display: grid;

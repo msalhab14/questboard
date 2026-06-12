@@ -909,6 +909,12 @@ export default function App() {
     <Torches />
     <div className="board" style={{ position: 'relative', zIndex: 2 }}>
       <div className="header">
+        <nav className="module-nav" aria-label="Switch module">
+          <a className="module-nav-item" href="https://138.197.81.63.nip.io/" title="Dashboard">🏠</a>
+          <a className="module-nav-item" href="https://138.197.81.63.nip.io/chat" title="AI Assistant">🤖</a>
+          <a className="module-nav-item" href="https://138.197.81.63.nip.io/meals" title="Meal Planner">🍽️</a>
+          <a className="module-nav-item" href="https://138.197.81.63.nip.io/notes" title="Notes">📝</a>
+        </nav>
         <span className="title"><TileSprite tile={118} display={18} /> Questboard</span>
         <div className="tabs">
           <button className={`tab${currentTab === 'chores' ? ' active' : ''}`} onClick={() => setCurrentTab('chores')}>
