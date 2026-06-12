@@ -1,14 +1,15 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import json, os
+from typing import Any, Dict
+import json, os, tempfile
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["https://questboard.138.197.81.63.nip.io"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 _DATA_DIR   = os.environ.get("QUESTBOARD_DATA", "/data")
@@ -27,9 +28,16 @@ def read_json(path):
 
 
 def write_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(data, f)
+    dir_path = os.path.dirname(path)
+    os.makedirs(dir_path, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=dir_path)
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp_path, path)
+    except Exception:
+        os.unlink(tmp_path)
+        raise
 
 
 @app.get("/state")
@@ -38,8 +46,7 @@ def get_state():
 
 
 @app.post("/state")
-async def post_state(request: Request):
-    data = await request.json()
+async def post_state(data: Dict[str, Any]):
     write_json(STATE_FILE, data)
     return {"ok": True}
 
@@ -53,7 +60,6 @@ def get_config():
 
 
 @app.post("/config")
-async def post_config(request: Request):
-    data = await request.json()
+async def post_config(data: Dict[str, Any]):
     write_json(CONFIG_FILE, data)
     return {"ok": True}
