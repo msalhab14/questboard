@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { todayKey, dateSeededMonster, resolveMonster, getLevelFromXP, critChanceForLevel, luckForLevel, getPlayerTitle, getTitleForBadge } from '../logic';
+import { todayKey, dateSeededMonster, resolveMonster, getLevelFromXP, luckForLevel, getPlayerTitle, getTitleForBadge } from '../logic';
 import { BADGES, TITLES, POWER_UPS, OVERKILL_CHARGE_GOAL, CLASSES } from '../data';
 import { MONSTER_SPRITES } from '../monsterSprites';
 import TileSprite from './TileSprite';
@@ -73,7 +73,6 @@ export default function PlayerCard({ player, gold, xp, isSelected, onClick, mons
   const charCfg = CLASS_TILES[player.class] ?? CLASS_TILES.warrior;
   const mc = MONSTER_SPRITES[m.id] ?? MONSTER_SPRITES.green_slime;
   const { level, xpInLevel, xpNeeded } = getLevelFromXP(xp || 0);
-  const critPct = Math.round(critChanceForLevel(level) * 100);
   const title = selectedTitleBadge ? getTitleForBadge(selectedTitleBadge) : getPlayerTitle(badges || []);
   const prestigeCount = prestige || 0;
   const earnedBadges = (badges || []).map(id => BADGES.find(b => b.id === id)).filter(Boolean);
@@ -164,7 +163,6 @@ export default function PlayerCard({ player, gold, xp, isSelected, onClick, mons
         </div>
         <div className="player-level">
           <span className="level-badge">Lv {level}</span>
-          <span className="crit-chance">{critPct}% crit</span>
           <span className="luck-chance">{Math.round(luckForLevel(level) * 100)}% luck</span>
         </div>
         <div className="xp-bar-outer" title={`${xpInLevel}/${xpNeeded} XP`}>

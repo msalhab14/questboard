@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ALL_CHORES, REWARDS, BADGES, MONSTER_TAUNTS, POWER_UPS, OVERKILL_CHARGE_GOAL, POWER_TOKEN_CAP, POWER_TOKEN_CHOICES } from './data';
-import { todayKey, weekKey, monthKey, dateSeededMonster, getLevelFromXP, critChanceForLevel, luckForLevel, streakMultiplier, dailyBonusChoreId, rollLoot, checkNewBadges, getPlayerTitle, getTitleForBadge, isPowerUpActive, getActivePowerUps, cleanExpiredPowerUps, checkPowerUpTriggers, choreDoneKey, isChoreDoneForPlayer, initDungeonMap, dungeonMoveResult, generateFloor } from './logic';
+import { todayKey, weekKey, monthKey, dateSeededMonster, getLevelFromXP, luckForLevel, streakMultiplier, dailyBonusChoreId, rollLoot, checkNewBadges, getPlayerTitle, getTitleForBadge, isPowerUpActive, getActivePowerUps, cleanExpiredPowerUps, checkPowerUpTriggers, choreDoneKey, isChoreDoneForPlayer, initDungeonMap, dungeonMoveResult, generateFloor } from './logic';
 import PlayerCard from './components/PlayerCard';
 import ChoreGrid from './components/ChoreGrid';
 import RewardGrid from './components/RewardGrid';
@@ -12,7 +12,7 @@ import DungeonMap from './components/DungeonMap';
 import TileSprite from './components/TileSprite';
 import Celebration from './components/Celebration';
 import SetupWizard from './components/SetupWizard';
-import { playHit, playKill, playFanfare, playUndo, playRedeem, playCrit, playKeyPickup, isMuted, setMuted } from './sounds';
+import { playHit, playKill, playFanfare, playUndo, playRedeem, playKeyPickup, isMuted, setMuted } from './sounds';
 
 const API = '/api';
 
@@ -335,11 +335,10 @@ export default function App() {
 
     const hasDoubleDamage = isPowerUpActive(serverState.activePowerUps, selected, 'double_damage');
     const isBonus = choreId === bonusChoreId;
-    const isCrit = !monsterAlreadyDefeated && Math.random() < critChanceForLevel(level);
+    const isCrit = !monsterAlreadyDefeated && hasDoubleDamage;
     const comboMult = Math.min(2.5, 1 + (combo - 1) * 0.15);
     const basePts = isBonus ? chore.pts * 2 : chore.pts;
     let actualPts = Math.round((isCrit ? basePts * 2 : basePts) * comboMult);
-    if (hasDoubleDamage) actualPts = actualPts * 2;
 
     // ── Overkill mode: monster already defeated, charge the bar ──────────────
     if (monsterAlreadyDefeated) {
@@ -362,7 +361,7 @@ export default function App() {
         },
       };
       await updateState(newState);
-      playHit(chore.pts);
+      playHit();
       showToast(tokenEarned
         ? `${player.name}: ⚡ OVERKILL! Power Token banked!`
         : `${player.name}: ⚡ Overkill! ${finalCharge}/${OVERKILL_CHARGE_GOAL} charged`);
@@ -476,8 +475,7 @@ export default function App() {
     await updateState(newState);
     setLastHits(prev => ({ ...prev, [selected]: { pts: actualPts, ts: Date.now(), crit: isCrit } }));
 
-    if (isCrit && !justKilled) playCrit();
-    else if (justKilled) {
+    if (justKilled) {
       playKill();
       const allDone = players.every(pl => {
         const plLvl = getLevelFromXP(newState.xp?.[pl.id] || 0).level;
@@ -487,7 +485,7 @@ export default function App() {
       });
       if (allDone) setTimeout(() => { playFanfare(); setCelebration(true); }, 600);
     } else {
-      playHit(chore.pts);
+      playHit();
     }
 
     const comboTag  = combo > 1            ? ` x${combo} COMBO!`                                   : '';

@@ -826,13 +826,6 @@ body.crt::after {
   border-radius: 2px;
 }
 
-.crit-chance {
-  font-family: var(--pixel);
-  font-size: 7px;
-  color: #a070e0;
-  opacity: 0.85;
-}
-
 .luck-chance {
   font-family: var(--pixel);
   font-size: 7px;

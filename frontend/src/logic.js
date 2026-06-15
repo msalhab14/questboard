@@ -271,10 +271,6 @@ export function getLevelFromXP(totalXp) {
   return { level, xpInLevel: xp, xpNeeded: threshold };
 }
 
-export function critChanceForLevel(level) {
-  return 0.05 + (level - 1) * 0.01;
-}
-
 export function luckForLevel(level) {
   return Math.min(0.5, 0.05 + (level - 1) * 0.02);
 }
