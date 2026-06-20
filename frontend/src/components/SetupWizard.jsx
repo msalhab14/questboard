@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ALL_CHORES, REWARDS, POWER_UPS, DEFAULT_POWER_UP_SETTINGS, TRIGGER_TYPES, DURATION_OPTIONS, CLASSES } from '../data';
 import TileSprite from './TileSprite';
 
@@ -65,7 +65,7 @@ const S = {
   card: {
     background: '#13132a', border: '2px solid #3a3a6e',
     borderRadius: 4, width: '100%', maxWidth: 560,
-    maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+    maxHeight: '90dvh', display: 'flex', flexDirection: 'column',
     overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,0.8)',
   },
   header: {
@@ -916,6 +916,15 @@ function TabDisplay({ crtEnabled, onToggleCrt, uiScale, onChangeUiScale, animate
 export default function SetupWizard({ onComplete, onCancel, initialConfig }) {
   const isEdit = !!initialConfig;
 
+  // Lock page-level scroll while this overlay is open -- otherwise the
+  // whole page (not just the modal's own scrollable body) can scroll on
+  // iOS, pushing the header/footer (incl. the Save button) out of view.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, []);
+
   const [step, setStep] = useState(isEdit ? 'tabs' : 0);
   const [activeTab, setActiveTab] = useState('party');
   const [players, setPlayers] = useState(initialConfig?.players ?? []);
@@ -1023,9 +1032,12 @@ export default function SetupWizard({ onComplete, onCancel, initialConfig }) {
         <div style={S.card}>
           <div style={S.header}>
             <span style={S.title}>⚔ EDIT SETTINGS</span>
-            {onCancel && (
-              <button style={{ ...S.btn, padding: '4px 10px', fontSize: 11 }} onClick={onCancel}>✕ Cancel</button>
-            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={{ ...S.btnPrimary, padding: '4px 10px', fontSize: 11 }} onClick={handleLaunch}>Save ✓</button>
+              {onCancel && (
+                <button style={{ ...S.btn, padding: '4px 10px', fontSize: 11 }} onClick={onCancel}>✕ Cancel</button>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex', borderBottom: '1px solid #2a2a4a', flexShrink: 0 }}>
             {TABS.map(tab => (
