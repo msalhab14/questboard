@@ -21,6 +21,7 @@ const PLAYER_COLORS = [
 
 const WHO_CYCLE = ['all', 'adults', 'kids'];
 const WHO_LABEL = { all: 'everyone', adults: 'adults', kids: 'kids' };
+const CAP_CYCLE = [null, 2, 3, 5, 10];
 
 const REWARD_TIERS = [
   { label: 'QUICK', max: 15  },
@@ -259,7 +260,7 @@ function CycleBtn({ value, onClick }) {
 }
 
 // ── Shared: custom item form ──────────────────────────────────────────────────
-function CustomForm({ form, setForm, onSubmit, onCancel, extraFields }) {
+function CustomForm({ form, setForm, onSubmit, onCancel, extraFields, extraRow }) {
   const [showPicker, setShowPicker] = useState(false);
   return (
     <div style={{ background: '#0d0d20', border: '1px solid #3a3a6e', padding: 12, marginBottom: 16 }}>
@@ -292,6 +293,7 @@ function CustomForm({ form, setForm, onSubmit, onCancel, extraFields }) {
           <option value="kids">Kids</option>
         </select>
       </div>
+      {extraRow && <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>{extraRow}</div>}
       <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
         <button style={S.btnPrimary} onClick={onSubmit}>Add</button>
         <button style={S.btn} onClick={onCancel}>Cancel</button>
@@ -303,7 +305,7 @@ function CustomForm({ form, setForm, onSubmit, onCancel, extraFields }) {
 // ── Shared: chore list (wizard step + Quests tab) ─────────────────────────────
 function ChoreSection({ players, enabledChores, onToggle, choreOverrides, onOverride, customChores, onAddCustom, onRemoveCustom }) {
   const [addingCustom, setAddingCustom] = useState(false);
-  const [form, setForm] = useState({ name: '', icon: '⭐', pts: 2, who: 'all', freq: 'daily', mode: 'party' });
+  const [form, setForm] = useState({ name: '', icon: '⭐', pts: 2, who: 'all', freq: 'daily', mode: 'party', repeatable: false, maxPerPeriod: null });
 
   const modes = new Set(players.map(p => p.mode));
   const daily   = ALL_CHORES.filter(c => c.freq === 'daily');
@@ -317,7 +319,7 @@ function ChoreSection({ players, enabledChores, onToggle, choreOverrides, onOver
   function submitCustom() {
     if (!form.name.trim()) return;
     onAddCustom({ ...form, id: `custom_${Date.now()}`, name: form.name.trim() });
-    setForm({ name: '', icon: '⭐', pts: 2, who: 'all', freq: 'daily', mode: 'party' });
+    setForm({ name: '', icon: '⭐', pts: 2, who: 'all', freq: 'daily', mode: 'party', repeatable: false, maxPerPeriod: null });
     setAddingCustom(false);
   }
 
@@ -326,6 +328,8 @@ function ChoreSection({ players, enabledChores, onToggle, choreOverrides, onOver
     const who  = ov.who  ?? chore.who;
     const pts  = ov.pts  ?? chore.pts;
     const mode = ov.mode ?? chore.mode ?? 'party';
+    const repeatable = ov.repeatable ?? chore.repeatable ?? false;
+    const maxPerPeriod = ov.maxPerPeriod ?? chore.maxPerPeriod ?? null;
     const dim  = !isRelevant(who);
 
     return (
@@ -349,6 +353,18 @@ function ChoreSection({ players, enabledChores, onToggle, choreOverrides, onOver
           onClick={e => { e.stopPropagation(); onOverride(chore.id, { ...ov, pts: pts >= 6 ? 1 : pts + 1 }); }}
           style={{ background: 'none', border: '1px solid #3a3a5e', color: '#f5c870', fontSize: 10, padding: '2px 6px', cursor: 'pointer', minWidth: 34 }}
         >{pts}pts</button>
+        <button
+          onClick={e => { e.stopPropagation(); onOverride(chore.id, { ...ov, repeatable: !repeatable }); }}
+          style={{ background: 'none', border: '1px solid #3a3a5e', color: repeatable ? '#7ab8f5' : '#5a5a7a', fontSize: 10, padding: '2px 6px', cursor: 'pointer', minWidth: 34 }}
+          title={repeatable ? 'Can be logged multiple times  -  tap to make one-time' : 'One-time chore  -  tap to allow repeats'}
+        >🔁{repeatable ? ' ON' : ''}</button>
+        {repeatable && (
+          <button
+            onClick={e => { e.stopPropagation(); const idx = CAP_CYCLE.indexOf(maxPerPeriod); const next = CAP_CYCLE[(idx + 1) % CAP_CYCLE.length]; onOverride(chore.id, { ...ov, maxPerPeriod: next }); }}
+            style={{ background: 'none', border: '1px solid #3a3a5e', color: '#c4a0f5', fontSize: 10, padding: '2px 6px', cursor: 'pointer', minWidth: 34 }}
+            title="Tap to cycle the max times per period"
+          >{maxPerPeriod ? `max ${maxPerPeriod}` : '∞'}</button>
+        )}
         {isCustom && (
           <button onClick={e => { e.stopPropagation(); onRemoveCustom(chore.id); }}
             style={{ background: 'none', border: 'none', color: '#7a3a3a', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>✕</button>
@@ -403,6 +419,23 @@ function ChoreSection({ players, enabledChores, onToggle, choreOverrides, onOver
                 <option value="party">ALL (shared)</option>
                 <option value="solo">1P (per player)</option>
               </select>
+            </>
+          }
+          extraRow={
+            <>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#8a8aaa', fontSize: 11, flex: 1 }}>
+                <input type="checkbox" checked={form.repeatable}
+                  onChange={e => setForm(f => ({ ...f, repeatable: e.target.checked, maxPerPeriod: e.target.checked ? f.maxPerPeriod : null }))}
+                  style={{ accentColor: '#7ab8f5', width: 14, height: 14 }} />
+                🔁 Allow multiple completions per period
+              </label>
+              {form.repeatable && (
+                <select style={{ ...S.input, flex: 1 }} value={form.maxPerPeriod ?? ''}
+                  onChange={e => setForm(f => ({ ...f, maxPerPeriod: e.target.value ? +e.target.value : null }))}>
+                  <option value="">No limit</option>
+                  {[2,3,4,5,6,8,10].map(n => <option key={n} value={n}>Max {n}</option>)}
+                </select>
+              )}
             </>
           }
         />

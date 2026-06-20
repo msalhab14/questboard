@@ -1407,6 +1407,43 @@ body.crt::after {
   margin-left: 4px;
 }
 
+/* ── Repeatable chore badge ── */
+.repeat-badge {
+  font-family: var(--pixel);
+  font-size: 7px;
+  color: #7ab8f5;
+  background: rgba(60,120,200,0.18);
+  border: 1px solid rgba(60,120,200,0.4);
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-left: 4px;
+}
+
+.repeat-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 9px;
+  font-family: var(--pixel);
+  color: var(--gold2);
+  margin-top: 3px;
+}
+
+.repeat-undo {
+  background: none;
+  border: 1px solid var(--ember-border);
+  color: #e88040;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.repeat-undo:hover {
+  background: var(--ember-bg);
+}
+
 /* ── Overkill bar ── */
 .overkill-bar {
   display: flex;

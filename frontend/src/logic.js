@@ -327,6 +327,51 @@ export function getChoreClaimant(store, chore, playerId) {
   return store[chore.id] || null;
 }
 
+// ── Repeatable chore helpers ────────────────────────────────────────────────────
+// Repeatable chores store an array of entries (one per completion) under a doneKey
+// instead of a single scalar value. Legacy/non-repeatable entries stay scalar, so
+// these helpers transparently handle both shapes — no data migration needed.
+
+export function appendRepeatable(map, key, value, repeatable) {
+  if (!repeatable) return { ...map, [key]: value };
+  const existing = map[key];
+  const list = Array.isArray(existing) ? existing : (existing != null ? [existing] : []);
+  return { ...map, [key]: [...list, value] };
+}
+
+export function popRepeatable(map, key) {
+  if (!map || !(key in map)) return;
+  const existing = map[key];
+  if (Array.isArray(existing)) {
+    if (existing.length <= 1) {
+      delete map[key];
+    } else {
+      map[key] = existing.slice(0, -1);
+    }
+  } else {
+    delete map[key];
+  }
+}
+
+export function lastRepeatableValue(map, key) {
+  const existing = map?.[key];
+  if (Array.isArray(existing)) return existing.length ? existing[existing.length - 1] : null;
+  return existing ?? null;
+}
+
+export function repeatableCount(map, key) {
+  const existing = map?.[key];
+  if (Array.isArray(existing)) return existing.length;
+  return existing != null ? 1 : 0;
+}
+
+export function canClaimChore(store, chore, playerId) {
+  const key = choreDoneKey(chore, playerId);
+  if (!chore.repeatable) return !store[key];
+  if (!chore.maxPerPeriod) return true;
+  return repeatableCount(store, key) < chore.maxPerPeriod;
+}
+
 // ── Power-ups ─────────────────────────────────────────────────────────────────
 
 export function isPowerUpActive(activePowerUps, playerId, powerUpId) {

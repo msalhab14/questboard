@@ -1,5 +1,5 @@
 import React from 'react';
-import { getChoresFor, choreDoneKey, isChoreDoneForPlayer, getChoreClaimant } from '../logic';
+import { getChoresFor, choreDoneKey, isChoreDoneForPlayer, getChoreClaimant, repeatableCount, canClaimChore, lastRepeatableValue } from '../logic';
 import TileSprite from './TileSprite';
 
 function dmgClass(p) {
@@ -13,6 +13,37 @@ function dmgClass(p) {
 
 function ChoreCard({ chore, players, dailyDone, weeklyDone, monthlyDone, selectedPlayerId, onClaim, onUnclaim, bonusChoreId }) {
   const store = chore.freq === 'daily' ? dailyDone : chore.freq === 'weekly' ? weeklyDone : monthlyDone;
+
+  if (chore.repeatable) {
+    const doneKey = choreDoneKey(chore, selectedPlayerId);
+    const count = repeatableCount(store, doneKey);
+    const canClaim = canClaimChore(store, chore, selectedPlayerId);
+    const lastClaimant = lastRepeatableValue(store, doneKey);
+    const canUndo = count > 0 && lastClaimant === selectedPlayerId;
+
+    return (
+      <div
+        className={`chore ${chore.freq} repeatable${!canClaim ? ' done' : ''}${canUndo ? ' undoable' : ''}${chore.id === bonusChoreId ? ' bonus' : ''}`}
+        onClick={() => canClaim && onClaim(chore.id)}
+        title={canClaim ? 'Tap to log another' : 'Limit reached'}
+      >
+        <div className="chore-top">
+          <TileSprite tile={chore.icon} scale={2} />
+          {chore.id === bonusChoreId && <span className="bonus-badge">⭐2x</span>}
+          <span className={`pts-badge ${dmgClass(chore.pts)}`}>
+            <TileSprite tile={118} display={10} />
+            {chore.pts}
+          </span>
+        </div>
+        <div className="chore-name">{chore.name}{chore.mode === 'solo' && <span className="solo-badge">1P</span>}<span className="repeat-badge">🔁</span></div>
+        <div className="repeat-count">
+          <span>{count > 0 ? `✕${count}${chore.maxPerPeriod ? `/${chore.maxPerPeriod}` : ''}` : 'tap to log'}</span>
+          {canUndo && <button className="repeat-undo" onClick={e => { e.stopPropagation(); onUnclaim(chore.id); }}>↩</button>}
+        </div>
+      </div>
+    );
+  }
+
   const isDone = isChoreDoneForPlayer(store, chore, selectedPlayerId);
   const claimedById = getChoreClaimant(store, chore, selectedPlayerId);
   const dp = claimedById ? players.find(p => p.id === claimedById) : null;

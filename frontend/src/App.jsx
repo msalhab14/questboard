@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ALL_CHORES, REWARDS, BADGES, MONSTER_TAUNTS, POWER_UPS, OVERKILL_CHARGE_GOAL, POWER_TOKEN_CAP, POWER_TOKEN_CHOICES } from './data';
-import { todayKey, weekKey, monthKey, dateSeededMonster, getLevelFromXP, luckForLevel, streakMultiplier, dailyBonusChoreId, rollLoot, checkNewBadges, getPlayerTitle, getTitleForBadge, isPowerUpActive, getActivePowerUps, cleanExpiredPowerUps, checkPowerUpTriggers, choreDoneKey, isChoreDoneForPlayer, initDungeonMap, dungeonMoveResult, generateFloor } from './logic';
+import { todayKey, weekKey, monthKey, dateSeededMonster, getLevelFromXP, luckForLevel, streakMultiplier, dailyBonusChoreId, rollLoot, checkNewBadges, getPlayerTitle, getTitleForBadge, isPowerUpActive, getActivePowerUps, cleanExpiredPowerUps, checkPowerUpTriggers, choreDoneKey, initDungeonMap, dungeonMoveResult, generateFloor, canClaimChore, appendRepeatable, popRepeatable, lastRepeatableValue } from './logic';
 import PlayerCard from './components/PlayerCard';
 import ChoreGrid from './components/ChoreGrid';
 import RewardGrid from './components/RewardGrid';
@@ -308,7 +308,7 @@ export default function App() {
     const storeKey = chore.freq === 'daily' ? 'dailyDone' : chore.freq === 'weekly' ? 'weeklyDone' : 'monthlyDone';
     const store = serverState[storeKey];
     const doneKey = choreDoneKey(chore, selected);
-    if (store[doneKey]) return;
+    if (!canClaimChore(store, chore, selected)) return;
 
     const player = players.find(p => p.id === selected);
     const tKey = todayKey();
@@ -351,13 +351,13 @@ export default function App() {
 
       const newState = {
         ...serverState,
-        [storeKey]: { ...store, [doneKey]: selected },
+        [storeKey]: appendRepeatable(store, doneKey, selected, chore.repeatable),
         overkillCharge: { ...(serverState.overkillCharge || {}), [selected]: finalCharge },
         storedPowerTokens: { ...(serverState.storedPowerTokens || {}), [selected]: newTokens },
         history: [...(serverState.history || []), { type: 'chore', player: player.name, name: chore.name, pts: actualPts, overkill: true, ts: Date.now() }],
         damageLog: {
           ...(serverState.damageLog || {}),
-          [selected]: { ...((serverState.damageLog || {})[selected] || {}), [doneKey]: { pts: actualPts, overkill: true } },
+          [selected]: appendRepeatable((serverState.damageLog || {})[selected] || {}, doneKey, { pts: actualPts, overkill: true }, chore.repeatable),
         },
       };
       await updateState(newState);
@@ -454,7 +454,7 @@ export default function App() {
 
     const newState = {
       ...serverState,
-      [storeKey]: { ...store, [doneKey]: selected },
+      [storeKey]: appendRepeatable(store, doneKey, selected, chore.repeatable),
       gold: { ...serverState.gold, [selected]: newGoldTotal },
       xp: newXpMap,
       weeklyGold: { ...(serverState.weeklyGold || {}), [selected]: (serverState.weeklyGold?.[selected] || 0) + totalGoldGain + lootGold },
@@ -467,7 +467,7 @@ export default function App() {
       },
       damageLog: {
         ...(serverState.damageLog || {}),
-        [selected]: { ...((serverState.damageLog || {})[selected] || {}), [doneKey]: { pts: actualPts, overkill: false } },
+        [selected]: appendRepeatable((serverState.damageLog || {})[selected] || {}, doneKey, { pts: actualPts, overkill: false }, chore.repeatable),
       },
       dungeonMaps: newDungeonMaps,
     };
@@ -510,24 +510,24 @@ export default function App() {
     const storeKey = chore.freq === 'daily' ? 'dailyDone' : chore.freq === 'weekly' ? 'weeklyDone' : 'monthlyDone';
     const store = serverState[storeKey];
     const doneKey = choreDoneKey(chore, selected);
-    const claimedBy = store[doneKey];
+    const claimedBy = lastRepeatableValue(store, doneKey);
     if (!claimedBy || claimedBy !== selected) return;
 
     const player = players.find(p => p.id === selected);
     const tKey = todayKey();
 
     // Look up actual pts from damageLog (handles crit/combo accurately)
-    const logEntry = serverState.damageLog?.[selected]?.[doneKey];
+    const logEntry = lastRepeatableValue(serverState.damageLog?.[selected] || {}, doneKey);
     const wasOverkill = typeof logEntry === 'object' ? !!logEntry.overkill : false;
     const actualPts = typeof logEntry === 'object' ? logEntry.pts : (logEntry ?? chore.pts);
 
     const updatedStore = { ...store };
-    delete updatedStore[doneKey];
+    popRepeatable(updatedStore, doneKey);
 
     const newDamageLog = { ...(serverState.damageLog || {}) };
     if (newDamageLog[selected]) {
       newDamageLog[selected] = { ...newDamageLog[selected] };
-      delete newDamageLog[selected][doneKey];
+      popRepeatable(newDamageLog[selected], doneKey);
     }
 
     if (wasOverkill) {
