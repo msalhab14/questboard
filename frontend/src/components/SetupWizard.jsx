@@ -61,11 +61,6 @@ const S = {
     position: 'fixed', inset: 0, background: 'rgba(5,5,18,0.97)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     zIndex: 200, fontFamily: 'inherit',
-    // Settings is a utility screen -- keep it at normal scale even when
-    // the game board's heroic/epic zoom (body.scale-heroic/epic) is on,
-    // otherwise the modal's content can outgrow its 90dvh cap on taller
-    // tabs and push the header (incl. Save) off-screen.
-    zoom: 1,
   },
   card: {
     background: '#13132a', border: '2px solid #3a3a6e',

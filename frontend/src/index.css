@@ -1673,11 +1673,13 @@ body.crt::after {
   color: #7a7a9a;
 }
 
-/* ── UI scale modes ── */
-body.scale-heroic {
+/* ── UI scale modes ──
+   Scoped to .board (not body) so the Settings modal -- rendered as a
+   sibling of .board, never a descendant -- is never affected. */
+.board.scale-heroic {
   zoom: 1.25;
 }
-body.scale-epic {
+.board.scale-epic {
   zoom: 1.75;
 }
 

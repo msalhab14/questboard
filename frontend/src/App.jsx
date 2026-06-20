@@ -856,13 +856,6 @@ export default function App() {
     document.body.classList.toggle('crt', enabled);
   }, [config?.crtEnabled]);
 
-  // Apply UI scale classes on body
-  useEffect(() => {
-    document.body.classList.remove('scale-heroic', 'scale-epic');
-    if (config?.uiScale === 'heroic') document.body.classList.add('scale-heroic');
-    else if (config?.uiScale === 'epic') document.body.classList.add('scale-epic');
-  }, [config?.uiScale]);
-
   // Apply portrait orientation class on body
   useEffect(() => {
     document.body.classList.toggle('portrait', config?.displayOrientation === 'portrait');
@@ -905,7 +898,10 @@ export default function App() {
     <>
     {(config?.animatedBg !== false) && <DungeonBackground />}
     <Torches />
-    <div className="board" style={{ position: 'relative', zIndex: 2 }}>
+    <div
+      className={`board${config?.uiScale === 'heroic' ? ' scale-heroic' : config?.uiScale === 'epic' ? ' scale-epic' : ''}`}
+      style={{ position: 'relative', zIndex: 2 }}
+    >
       <div className="header">
         <nav className="module-nav" aria-label="Switch module">
           <a className="module-nav-item" href="https://138.197.81.63.nip.io/" title="Dashboard">🏠</a>
