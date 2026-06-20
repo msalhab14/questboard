@@ -256,7 +256,9 @@ export function getChoresFor(player, chores) {
 
 export function getRewardsFor(player, rewards) {
   const isKid = player.mode === 'kids';
-  return rewards.filter(r => r.who === 'all' || (isKid ? r.who === 'kids' : r.who === 'adults'));
+  return rewards
+    .filter(r => r.who === 'all' || (isKid ? r.who === 'kids' : r.who === 'adults'))
+    .sort((a, b) => a.cost - b.cost);
 }
 
 export function getLevelFromXP(totalXp) {
