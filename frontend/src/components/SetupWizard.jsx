@@ -1102,7 +1102,6 @@ export default function SetupWizard({ onComplete, onCancel, initialConfig }) {
           </div>
           <div style={S.footer}>
             <span style={{ color: '#5a5a8a', fontSize: 11 }}>{players.length} hero{players.length !== 1 ? 'es' : ''}</span>
-            <button style={S.btnPrimary} onClick={handleLaunch}>Save Changes ✓</button>
           </div>
         </div>
       </div>
