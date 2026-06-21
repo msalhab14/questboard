@@ -1,7 +1,12 @@
-from fastapi import FastAPI
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Any, Dict
+from fastapi.responses import PlainTextResponse
+from typing import Any, Dict, Optional
 import json, os, tempfile
+
+from monsters import MONSTERS
 
 app = FastAPI()
 
@@ -63,3 +68,107 @@ def get_config():
 async def post_config(data: Dict[str, Any]):
     write_json(CONFIG_FILE, data)
     return {"ok": True}
+
+
+# ── Monster status (Apple Watch / Shortcuts integration) ──
+# Read-only snapshot of a player's daily monster fight, for external surfaces
+# (an iOS Shortcut driving a Watch complication) that can't run the frontend's
+# own JS. Ported from frontend/src/logic.js's dateSeededMonster()/getLevelFromXP()
+# and frontend/src/data.js's MONSTERS roster (see monsters.py) — these must stay
+# in sync with the frontend by hand, since a Python backend can't import JS.
+
+MONSTER_STATUS_TOKEN = os.environ.get("MONSTER_STATUS_TOKEN")
+QUESTBOARD_TIME_ZONE = ZoneInfo("America/New_York")
+
+
+def _check_monster_status_token(token: Optional[str]):
+    if not MONSTER_STATUS_TOKEN:
+        raise HTTPException(status_code=503, detail="MONSTER_STATUS_TOKEN is not configured")
+    if token != MONSTER_STATUS_TOKEN:
+        raise HTTPException(status_code=403, detail="Invalid token")
+
+
+def _today_key():
+    # Matches frontend's todayKey(): `${getFullYear()}-${getMonth()}-${getDate()}`
+    # — note getMonth() is 0-indexed, so this is NOT zero-padded "YYYY-MM-DD".
+    now = datetime.now(QUESTBOARD_TIME_ZONE)
+    return f"{now.year}-{now.month - 1}-{now.day}"
+
+
+def _level_from_xp(total_xp):
+    xp = total_xp
+    level = 1
+    threshold = 10
+    while xp >= threshold:
+        xp -= threshold
+        level += 1
+        threshold = int(10 + 5 * (level - 1) * (level - 1))
+    return level
+
+
+def _date_seeded_monster(player_id, mode, date_key, player_level):
+    max_tier = (
+        5 if player_level >= 9 else
+        4 if player_level >= 7 else
+        3 if player_level >= 5 else
+        2 if player_level >= 3 else 1
+    )
+    pool = [m for m in MONSTERS if m.get("tier", 1) <= max_tier]
+    h = sum(ord(c) for c in f"{player_id}{date_key}")
+    base = pool[h % len(pool)]
+    is_kid = mode == "kids"
+    max_hp = base["kidHP"] if is_kid else base["adultHP"]
+    gold = base["kidGold"] if is_kid else base["gold"]
+    return {**base, "maxHP": max_hp, "gold": gold}
+
+
+def _find_player(players, name):
+    if not name:
+        return None
+    needle = name.strip().lower()
+    return next((p for p in players if p.get("name", "").strip().lower() == needle), None)
+
+
+def _resolve_monster_status(player_name: Optional[str]):
+    config = read_json(CONFIG_FILE)
+    players = (config or {}).get("players") or []
+    if not players:
+        raise HTTPException(status_code=404, detail="Questboard hasn't been set up yet")
+
+    target = _find_player(players, player_name) or _find_player(players, "Oliver") or players[0]
+
+    state = read_json(STATE_FILE) or {}
+    xp = (state.get("xp") or {}).get(target["id"], 0)
+    level = _level_from_xp(xp)
+    date_key = _today_key()
+    monster = _date_seeded_monster(target["id"], target.get("mode", "adults"), date_key, level)
+    dmg = ((state.get("monsterDamage") or {}).get(target["id"]) or {}).get(date_key, 0)
+    current_hp = max(0, monster["maxHP"] - dmg)
+
+    return {
+        "player": target["name"],
+        "monster": monster["name"],
+        "currentHP": current_hp,
+        "maxHP": monster["maxHP"],
+        "defeated": current_hp <= 0,
+    }
+
+
+@app.get("/monster-status")
+def get_monster_status(player: Optional[str] = None, token: Optional[str] = None, format: str = "text"):
+    _check_monster_status_token(token)
+    status = _resolve_monster_status(player)
+    if format == "json":
+        return status
+    state_text = "Defeated!" if status["defeated"] else f"{status['currentHP']}/{status['maxHP']} HP"
+    return PlainTextResponse(f"{status['player']} vs {status['monster']} — {state_text}")
+
+
+@app.get("/monster-status/players")
+def list_monster_status_players(token: Optional[str] = None):
+    _check_monster_status_token(token)
+    config = read_json(CONFIG_FILE)
+    players = (config or {}).get("players") or []
+    if not players:
+        raise HTTPException(status_code=404, detail="Questboard hasn't been set up yet")
+    return {"players": [p["name"] for p in players]}
