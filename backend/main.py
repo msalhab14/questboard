@@ -1,7 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse, Response
 from PIL import Image
@@ -194,8 +194,10 @@ def list_monster_status_players(token: Optional[str] = None):
 # personal/sensitive data. nginx exempts this path from the dashboard login
 # gate too, so an iOS Shortcut (which has no session cookie) can fetch it
 # directly via the imageUrl returned above.
-@app.get("/monster-image/{monster_id}")
-def get_monster_image(monster_id: str):
+# Explicit GET+HEAD: FastAPI doesn't auto-allow HEAD on a plain @app.get route,
+# so `curl -I` (or any HEAD probe) would otherwise 405.
+@app.api_route("/monster-image/{monster_id}", methods=["GET", "HEAD"])
+def get_monster_image(monster_id: str, request: Request):
     sprite = MONSTER_SPRITES.get(monster_id)
     if not sprite:
         raise HTTPException(status_code=404, detail="Unknown monster")
@@ -203,6 +205,9 @@ def get_monster_image(monster_id: str):
     image_path = os.path.normpath(os.path.join(_FRONTEND_PUBLIC_DIR, sprite["src"].lstrip("/")))
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404, detail="Sprite image not found")
+
+    if request.method == "HEAD":
+        return Response(status_code=200, media_type="image/png")
 
     img = Image.open(image_path)
     fs = sprite.get("fs")
