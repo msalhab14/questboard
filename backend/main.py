@@ -1,5 +1,6 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
@@ -7,6 +8,11 @@ from typing import Any, Dict, Optional
 import json, os, tempfile
 
 from monsters import MONSTERS
+
+# Loads backend/.env (this repo's own secrets, e.g. MONSTER_STATUS_TOKEN) —
+# independent of pm2's env_file mechanism, which doesn't reliably propagate
+# into this app's `interpreter: 'none'` + raw uvicorn invocation.
+load_dotenv()
 
 app = FastAPI()
 

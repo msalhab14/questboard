@@ -53,6 +53,25 @@ Vite proxies `/api/*` to the backend automatically.
 - Solo chores: personal tasks tracked per player
 - Kids mode uses easier monster scaling
 
+## External API: monster status
+
+`GET /monster-status` (`?player=<name>&format=text|json`) and `GET
+/monster-status/players` are read-only endpoints for callers outside the
+React frontend — currently an iOS Shortcut driving an Apple Watch
+complication. They re-derive a player's daily monster/HP from
+`backend/monsters.py` (a mechanical port of `frontend/src/data.js`'s
+`MONSTERS` — keep both in sync by hand if the roster changes) and
+`_date_seeded_monster()`/`_level_from_xp()` in `backend/main.py` (ports of
+`logic.js`'s `dateSeededMonster()`/`getLevelFromXP()`). Gated by a
+`MONSTER_STATUS_TOKEN` env var passed as `?token=`; fails closed (503) if
+unset. `backend/main.py` loads it from `backend/.env` (gitignored, not
+committed) via `python-dotenv`'s `load_dotenv()` — kept local to this repo
+rather than relying on pm2's `env_file`, which doesn't reliably reach this
+app's `interpreter: 'none'` + raw uvicorn invocation in the sibling
+`familyOS` repo's `ecosystem.config.js`. Full integration writeup (nginx
+exemption, Shortcut setup) lives in the sibling `familyOS` repo's
+`CLAUDE.md`, under Questboard → "Monster status on Apple Watch."
+
 ## Docker build
 
 ```bash
