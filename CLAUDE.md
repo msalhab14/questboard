@@ -72,6 +72,21 @@ app's `interpreter: 'none'` + raw uvicorn invocation in the sibling
 exemption, Shortcut setup) lives in the sibling `familyOS` repo's
 `CLAUDE.md`, under Questboard → "Monster status on Apple Watch."
 
+The `?format=json` response also includes an `imageUrl` pointing at `GET
+/monster-image/{monster_id}` — a portrait of that monster, for the same
+Shortcut/Watch-complication use case. `backend/monster_sprites.py` is a
+mechanical port of `frontend/src/monsterSprites.js`'s `MONSTER_SPRITES` map
+(same "keep in sync by hand if the roster changes" caveat as
+`monsters.py`/`MONSTERS` above), keeping only `src` and — when the sprite is
+an animated horizontal strip rather than a static `type:'img'` PNG — `fs`
+(frame size). `/monster-image/{monster_id}` resolves `src` against
+`frontend/public/` (Pillow's `Image.open()`), crops to the top-left `fs×fs`
+square (frame 0) when `fs` is present so an animated sprite sheet renders as
+a single clean portrait instead of the whole multi-frame strip, and returns
+it unmodified otherwise. Unlike `/monster-status`, this endpoint does **not**
+require `MONSTER_STATUS_TOKEN` — monster artwork isn't sensitive, only the
+player HP/status data is.
+
 ## Docker build
 
 ```bash

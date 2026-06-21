@@ -3,22 +3,26 @@ from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
+from PIL import Image
 from typing import Any, Dict, Optional
-import json, os, tempfile
+import io, json, os, tempfile
 
 from monsters import MONSTERS
+from monster_sprites import MONSTER_SPRITES
 
 # Loads backend/.env (this repo's own secrets, e.g. MONSTER_STATUS_TOKEN) —
 # independent of pm2's env_file mechanism, which doesn't reliably propagate
 # into this app's `interpreter: 'none'` + raw uvicorn invocation.
 load_dotenv()
 
+QUESTBOARD_PUBLIC_ORIGIN = "https://questboard.138.197.81.63.nip.io"
+
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://questboard.138.197.81.63.nip.io"],
+    allow_origins=[QUESTBOARD_PUBLIC_ORIGIN],
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
@@ -26,6 +30,11 @@ app.add_middleware(
 _DATA_DIR   = os.environ.get("QUESTBOARD_DATA", "/data")
 STATE_FILE  = os.path.join(_DATA_DIR, "state.json")
 CONFIG_FILE = os.path.join(_DATA_DIR, "config.json")
+
+# frontend/public/ sits one level up from backend/ — sprite `src` paths in
+# monster_sprites.py are root-relative (e.g. "/sprites/monsters2/rat.png"),
+# matching how Vite serves frontend/public/ at the site root.
+_FRONTEND_PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "public")
 
 
 def read_json(path):
@@ -157,6 +166,7 @@ def _resolve_monster_status(player_name: Optional[str]):
         "currentHP": current_hp,
         "maxHP": monster["maxHP"],
         "defeated": current_hp <= 0,
+        "imageUrl": f"{QUESTBOARD_PUBLIC_ORIGIN}/api/monster-image/{monster['id']}",
     }
 
 
@@ -178,3 +188,29 @@ def list_monster_status_players(token: Optional[str] = None):
     if not players:
         raise HTTPException(status_code=404, detail="Questboard hasn't been set up yet")
     return {"players": [p["name"] for p in players]}
+
+
+# No token required here — unlike player HP/status, monster artwork isn't
+# personal/sensitive data. nginx exempts this path from the dashboard login
+# gate too, so an iOS Shortcut (which has no session cookie) can fetch it
+# directly via the imageUrl returned above.
+@app.get("/monster-image/{monster_id}")
+def get_monster_image(monster_id: str):
+    sprite = MONSTER_SPRITES.get(monster_id)
+    if not sprite:
+        raise HTTPException(status_code=404, detail="Unknown monster")
+
+    image_path = os.path.normpath(os.path.join(_FRONTEND_PUBLIC_DIR, sprite["src"].lstrip("/")))
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Sprite image not found")
+
+    img = Image.open(image_path)
+    fs = sprite.get("fs")
+    if fs:
+        # Animated horizontal strip — crop to frame 0 (top-left fs×fs square)
+        # for a clean single portrait instead of the whole multi-frame sheet.
+        img = img.crop((0, 0, fs, fs))
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png")
